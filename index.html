@@ -482,6 +482,9 @@
     let inputRaw = document.getElementById("inputScanChecker").value.trim();
     let input = inputRaw.replace(/[^0-9]/g, '');
     if(!input) return;
+    
+    playBeep(); // <--- TAMBAHKAN KODE INI DI SINI
+    
     document.getElementById("inputScanChecker").value = "";
     
     let cabangAktif = localStorage.getItem("sesiCabangSSL");
@@ -604,6 +607,8 @@
     let input = inputRaw.replace(/[^0-9]/g, '');
     let cabangAktif = document.getElementById("lokasiKasirReadonly").value.toLowerCase();
     if(!input) return;
+
+    playBeep(); // <--- TAMBAHKAN KODE INI DI SINI
     
     let paket = await db.paket.get(input);
     if (!paket) {
