@@ -482,7 +482,7 @@
     });
   }
 
-  // ==========================================
+// ==========================================
   // 5. LOGIKA CHECKER & KASIR (INBOUND / OUTBOUND)
   // ==========================================
   async function submitScanChecker() {
@@ -508,6 +508,7 @@
 
     let finalPin = paket ? paket.noPaket : input;
 
+    // KONDISI 1: CEK DUPLIKAT HARI INI
     if (memoriScanLokal.includes(finalPin.toString())) {
       playTetot();
       alertBox.className = "alert alert-salah";
@@ -515,6 +516,16 @@
       alertBox.style.color = "#991b1b";
       alertBox.innerHTML = `🛑 <b>DUPLIKAT</b><br>Paket/No HP <b>${inputRaw}</b> (PIN: ${finalPin}) sudah ter-scan hari ini!`;
       return;
+    }
+
+    // KONDISI 2: CEK STATUS SUDAH DIAMBIL DI MASTER (BLOKIR INPUT)
+    if (paket && paket.statusAmbil === "Sudah Diambil") {
+      playTetot();
+      alertBox.className = "alert alert-salah";
+      alertBox.style.backgroundColor = "#fee2e2";
+      alertBox.style.color = "#991b1b";
+      alertBox.innerHTML = `🛑 <b>INVALID (SUDAH DIAMBIL)</b><br>Paket <b>${finalPin}</b> sudah tercatat diserahkan ke kustomer di Master Data. Fisik paket seharusnya tidak ada!`;
+      return; // Menghentikan proses agar tidak masuk tabel dan antrean server
     }
 
     let tujuanMaster = "Tidak Ditemukan";
@@ -567,7 +578,6 @@
     trHtml += `<td><span class='badge ${badgeClass}'>${statusScan}</span></td></tr>`;
     tbody.insertAdjacentHTML('afterbegin', trHtml);
   }
-
   async function muatLaporanTanggalLayar() {
     let tgl = document.getElementById("inputTanggalPilihan").value;
     let cabang = localStorage.getItem("sesiCabangSSL");
