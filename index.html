@@ -446,7 +446,7 @@
 
     qrScanner.start(
       { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 250, height: 100 } }, // Aspek ratio lebar, menyesuaikan 20vh
+      { fps: 20, qrbox: { width: 250, height: 100 } }, // Aspek ratio lebar, menyesuaikan 20vh
       (decodedText) => {
         let angka = decodedText.replace(/[^0-9]/g, '');
         if(angka) {
