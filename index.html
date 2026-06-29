@@ -445,8 +445,15 @@
     isScanning = true;
 
     qrScanner.start(
-      { facingMode: "environment" },
-      { fps: 20, qrbox: { width: 250, height: 100 } }, // Aspek ratio lebar, menyesuaikan 20vh
+      { 
+        facingMode: "environment",
+        advanced: [{ focusMode: "continuous" }] 
+      },
+      { 
+        fps: 20, 
+        // qrbox diperbesar agar area deteksi sensor lebih luas menangkap barcode
+        qrbox: { width: 280, height: 220 } 
+      },
       (decodedText) => {
         let angka = decodedText.replace(/[^0-9]/g, '');
         if(angka) {
