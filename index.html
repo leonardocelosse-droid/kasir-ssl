@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kasir SSL Express</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    /* STYLING SAMA PERSIS SEPERTI SEBELUMNYA */
+    body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f7f6; margin: 0; }
+    .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    h2 { text-align: center; color: #333; margin-bottom: 5px;}
+    .branch-selector-box { background: #e9ecef; padding: 15px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #ced4da; }
+    .tab { display: flex; margin-bottom: 20px; }
+    .tab button { flex: 1; padding: 12px; cursor: pointer; border: none; background: #ddd; font-weight: bold; font-size: 15px; }
+    .tab button.active { background: #007BFF; color: white; }
+    .section { display: none; }
+    .section.active { display: block; }
+    input[type="text"], input[type="date"], select, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+    .btn-primary { background: #28a745; color: white; border: none; font-weight: bold; cursor: pointer; }
+    .btn-primary:hover { background: #218838; }
+    .btn-camera { background-color: #8b5cf6; color: white; border: none; font-weight: bold; cursor: pointer; font-size: 15px; padding: 12px; margin-bottom: 10px; border-radius: 5px;}
+    .btn-camera:hover { background-color: #7c3aed; }
+    .btn-danger { background-color: #dc3545; color: white; border: none; font-weight: bold; cursor: pointer; font-size: 15px; padding: 10px; border-radius: 5px; margin-top: 10px; width: 100%;}
+    #scannerArea { display: none; margin-bottom: 15px; border: 2px dashed #007BFF; padding: 15px; border-radius: 8px; text-align: center; background: #f8f9fa; }
+    #reader { width: 100%; max-width: 400px; margin: auto; overflow: hidden; border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px; }
+    th { background-color: #f2f2f2; }
+    .warning-text { color: red; font-weight: bold; }
+    .warning-box { background: #ffd2d2; padding: 10px; border-radius: 5px; color: #d8000c; font-weight: bold; text-align: center; margin-top: 15px; border: 1px solid #d8000c;}
+    .taken { color: #888; text-decoration: line-through; background-color: #f9f9f9; }
+    .wrong-location { background-color: #ffe6e6; }
+    .summary { font-size: 18px; font-weight: bold; text-align: right; margin-top: 15px; color: #d9534f; }
+    .subtotal-box { background: #e9ecef; padding: 15px; border-radius: 6px; margin-top: 20px; margin-bottom: 15px; border: 1px solid #ced4da; font-size: 15px; line-height: 1.6; display: flex; justify-content: space-between; flex-wrap: wrap;}
+    .subtotal-col { flex: 1; min-width: 150px; }
+    .paket-checkbox { width: 20px; height: 20px; cursor: pointer; }
+    .center-align { text-align: center; }
+    .search-box { margin-top: 15px; margin-bottom: 5px; }
+    .print-header { display: none; }
+    @media print {
+      @page { size: A4 portrait; margin: 20mm 15mm 20mm 15mm; }
+      body { background-color: white; color: black; padding: 0; margin: 0; font-size: 11pt; }
+      .container { max-width: 100% !important; width: 100% !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; }
+      .no-print, .branch-selector-box, .tab, #secAmbil, label, input, button, select, .search-box, #scannerArea { display: none !important; }
+      #secLaporan { display: block !important; }
+      .print-header { display: block !important; text-align: center; margin-bottom: 25px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+      .print-header h1 { margin: 0; font-size: 18pt; color: #000; }
+      .print-header p { margin: 5px 0 0 0; font-size: 11pt; color: #333; }
+      h3#judulLaporanCabang { display: none !important; }
+      .subtotal-box { background: #f8f9fa !important; border: 1px solid #666 !important; padding: 12px !important; margin-top: 15px !important; font-size: 10pt !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; page-break-inside: avoid; }
+      table { width: 100% !important; margin-top: 20px !important; border: 1px solid #000 !important; }
+      th, td { border: 1px solid #000 !important; padding: 7px 5px !important; font-size: 9.5pt !important; }
+      th { background-color: #eaeded !important; color: black !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .summary { font-size: 13pt !important; color: #000 !important; margin-top: 15px !important; page-break-inside: avoid; }
+    }
+    #toastNotif { visibility: hidden; min-width: 250px; background-color: #28a745; color: #fff; text-align: center; border-radius: 8px; padding: 15px; position: fixed; z-index: 1000; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 16px; font-weight: bold; box-shadow: 0px 4px 10px rgba(0,0,0,0.3); }
+    #toastNotif.show { visibility: visible; animation: fadein 0.3s, fadeout 0.5s 2.5s; }
+    @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+    @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2 class="no-print">Sistem Kasir SSL Express</h2>
+  <p class="no-print" style="text-align:center; color:#666; margin-top:0; margin-bottom:20px;">Inbound & Outbound System</p>
+  
+  <div class="print-header">
+    <h1>LAPORAN PENDAPATAN HARIAN</h1>
+    <p id="printInfoCabang" style="font-weight: bold; font-size: 13pt;"></p>
+    <p id="printInfoTanggal"></p>
+  </div>
+  
+  <div class="branch-selector-box no-print">
+    <label><b>Lokasi Kasir Aktif Saat Ini:</b></label>
+    <select id="lokasiKasir" onchange="handleBranchChange()">
+      <option value="SSL Causeway Bay">SSL Causeway Bay</option>
+      <option value="SSL Sham Shui Po">SSL Sham Shui Po</option>
+    </select>
+  </div>
+  
+  <div class="tab no-print">
+    <button id="tabAmbil" class="active" onclick="switchTab('ambil')">Ambil Paket</button>
+    <button id="tabLaporan" onclick="switchTab('laporan')">Laporan Harian</button>
+  </div>
+
+  <div id="secAmbil" class="section active no-print">
+    <button type="button" id="btnBukaScanner" class="btn-camera" onclick="bukaScanner()">📷 Buka Scanner Kamera (Mode Beruntun)</button>
+
+    <div id="scannerArea">
+      <div id="reader"></div>
+      <p style="font-size: 13px; color: #007BFF; font-weight: bold; margin-top:10px; margin-bottom: 5px;">Kamera Siap! Arahkan ke Resi secara bergantian.</p>
+      <button type="button" class="btn-danger" onclick="tutupScanner()">❌ Tutup Kamera</button>
+    </div>
+
+    <label><b>Input Nomor Paket / PIN / No. Telepon:</b></label>
+    <div style="display: flex; gap: 5px;">
+      <input type="text" inputmode="numeric" id="noPaket" placeholder="Ketik nomor atau hasil scan muncul di sini..." onkeypress="if(event.key === 'Enter') cariPaket()">
+      <button class="btn-primary" onclick="cariPaket()" id="btnCari" style="width: 100px; flex-shrink: 0;">Cari</button>
+    </div>
+    
+    <div id="hasilPencarian" style="display:none; margin-top: 20px; border-top: 2px solid #ddd; padding-top: 15px;">
+      <h3 id="infoKustomer"></h3>
+      
+      <div id="errorCabang" class="warning-box" style="display:none;">
+        ⚠️ Paket TIDAK SESUAI dengan cabang Anda. Paket ini otomatis diblokir dari pembayaran.
+      </div>
+
+      <table id="tabelPaket">
+        <thead>
+          <tr>
+            <th class="center-align">Ambil?</th>
+            <th>No Paket</th>
+            <th>Nama</th>
+            <th>Tujuan/Jenis</th>
+            <th>Tgl Masuk</th>
+            <th>Berat</th>
+            <th>Harga (HKD)</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      
+      <div class="summary" id="totalBayarText">Total Pembayaran: HKD 0</div>
+      
+      <div id="areaBayar" style="margin-top:20px;">
+        <label><b>Metode Pembayaran:</b></label>
+        <select id="metodeBayar">
+          <option value="Cash">Cash</option>
+          <option value="Octopus">Octopus</option>
+          <option value="Alipay">Alipay</option>
+          <option value="Kartu Kredit">Kartu Kredit</option>
+          <option value="Kredit / Utang">Kredit / Utang</option>
+          <option value="Lainnya">Lainnya</option>
+        </select>
+        <button class="btn-primary" onclick="konfirmasiAmbil()" id="btnKonfirmasi" style="font-size: 18px; padding: 15px;">✅ Konfirmasi & Simpan Transaksi</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="secLaporan" class="section">
+    <label class="no-print"><b>Pilih Tanggal Laporan Pendapatan:</b></label>
+    <input type="date" id="tanggalLaporan" class="no-print" onchange="lihatLaporan()">
+    <button class="btn-primary no-print" onclick="lihatLaporan()">Lihat Laporan</button>
+    
+    <button id="btnCetak" class="btn-primary no-print" onclick="window.print()" style="background-color: #17a2b8; display: none; margin-top: 5px; margin-bottom: 15px;">🖨️ Cetak Laporan (A4)</button>
+    
+    <h3 id="judulLaporanCabang" style="margin-top:20px; color:#333;"></h3>
+    <div id="subtotalBox" class="subtotal-box" style="display:none;"></div>
+    
+    <div class="search-box no-print">
+      <input type="text" id="searchLaporan" placeholder="🔍 Cari No Paket / Nama / Telepon / Metode Bayar..." onkeyup="filterLaporan()">
+    </div>
+
+    <table id="tabelLaporan" style="display:none;">
+      <thead>
+        <tr>
+          <th>No Paket</th>
+          <th>Nama & No. HP</th>
+          <th>Waktu Konfirmasi</th>
+          <th>Nominal (HKD)</th>
+          <th>Metode Bayar</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="summary" id="totalPendapatanText" style="display:none;">Total Keseluruhan: HKD 0</div>
+  </div>
+</div>
+
+<div id="toastNotif">Pesan Notifikasi</div>
+
+<script>
+  // =========================================================
+  // ISI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA DI BAWAH INI
+  // =========================================================
+  const API_URL = "https://script.google.com/macros/s/AKfycbz-AwSOMLoRsup4aFM2GjggagSbTcqnclnwe-504SXqKG5RMMfA4e_PMEeOEHHtjeAERA/exec";
+
+  // --- ENGINE KOMUNIKASI FETCH API ---
+  async function callAPI(payload) {
+    try {
+      let response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      return await response.json();
+    } catch (error) {
+      return { success: false, message: "Koneksi ke server gagal. Cek internet Anda." };
+    }
+  }
+
+  // --- VARIABEL & FUNGSI SCANNER INLINE BERUNTUN ---
+  let html5QrCode;
+  let scanCooldown = false;
+  let lastScannedCode = "";
+  let audioCtx;
+
+  function playSound() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if(audioCtx.state === 'suspended') audioCtx.resume();
+      let osc = audioCtx.createOscillator();
+      let gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.15);
+    } catch(e) {}
+  }
+
+  function bukaScanner() {
+    document.getElementById('scannerArea').style.display = 'block';
+    document.getElementById('btnBukaScanner').style.display = 'none';
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+    
+    html5QrCode.start(
+      { facingMode: "environment" }, 
+      { fps: 15, qrbox: { width: 250, height: 250 } },
+      function(decodedText) {
+        let hasilBersih = decodedText.toString().replace(/[^0-9a-zA-Z]/g, '');
+        if(hasilBersih !== "" && !scanCooldown && hasilBersih !== lastScannedCode) {
+          lastScannedCode = hasilBersih;
+          document.getElementById('noPaket').value = hasilBersih;
+          
+          playSound();
+          tampilkanToast("🎯 Berhasil Memindai: " + hasilBersih);
+          cariPaket();
+          
+          scanCooldown = true;
+          setTimeout(function() { scanCooldown = false; }, 2500);
+          setTimeout(function() { lastScannedCode = ""; }, 6000);
+        }
+      },
+      function(errorMessage) {}
+    ).catch(function(err) {
+      alert("Gagal mengakses kamera. Mohon izinkan browser mengakses kamera.");
+      tutupScanner();
+    });
+  }
+
+  function tutupScanner() {
+    if (html5QrCode && html5QrCode.isScanning) {
+      html5QrCode.stop().then(ignore => {
+        document.getElementById('scannerArea').style.display = 'none';
+        document.getElementById('btnBukaScanner').style.display = 'block';
+      });
+    } else {
+      document.getElementById('scannerArea').style.display = 'none';
+      document.getElementById('btnBukaScanner').style.display = 'block';
+    }
+  }
+
+  function switchTab(tab) {
+    document.getElementById('secAmbil').classList.remove('active');
+    document.getElementById('secLaporan').classList.remove('active');
+    document.getElementById('tabAmbil').classList.remove('active');
+    document.getElementById('tabLaporan').classList.remove('active');
+    tutupScanner();
+
+    if(tab === 'ambil') {
+      document.getElementById('secAmbil').classList.add('active');
+      document.getElementById('tabAmbil').classList.add('active');
+    } else {
+      document.getElementById('secLaporan').classList.add('active');
+      document.getElementById('tabLaporan').classList.add('active');
+      document.getElementById('tanggalLaporan').valueAsDate = new Date();
+      lihatLaporan();
+    }
+  }
+
+  function handleBranchChange() {
+    document.getElementById('hasilPencarian').style.display = 'none';
+    document.getElementById('noPaket').value = '';
+    if(document.getElementById('secLaporan').classList.contains('active')) {
+      lihatLaporan();
+    }
+  }
+
+  async function cariPaket() {
+    let noPaket = document.getElementById('noPaket').value;
+    let lokasi = document.getElementById('lokasiKasir').value;
+    if(!noPaket) return alert('Silakan masukkan nomor paket atau nomor telepon!');
+    
+    document.getElementById('btnCari').innerText = 'Mencari...';
+    
+    let payload = { action: 'searchPackage', noPaket: noPaket, lokasiKasir: lokasi };
+    let response = await callAPI(payload);
+    
+    document.getElementById('btnCari').innerText = 'Cari';
+    
+    if(!response.success) return alert(response.message);
+    
+    let tbody = document.querySelector('#tabelPaket tbody');
+    tbody.innerHTML = '';
+    let hasWrongLocation = false;
+    let hasValidPackage = false; 
+    
+    response.data.forEach(p => {
+      let isTaken = p.statusAmbil === "Sudah Diambil";
+      let trClass = isTaken ? "taken" : "";
+      let warnText = "";
+      let checkboxHtml = "";
+      
+      if(!isTaken) {
+        if (p.isWrongLocation) {
+          hasWrongLocation = true;
+          trClass = "wrong-location"; 
+          warnText = `<br><span class="warning-text">SALAH CABANG</span>`;
+          checkboxHtml = `🚫`; 
+        } else {
+          let valObj = {sheetName: p.sheetName, row: p.row};
+          let valStr = JSON.stringify(valObj);
+          checkboxHtml = `<input type="checkbox" class="paket-checkbox" value='${valStr}' data-harga="${p.bayar}" checked onchange="hitungTotal()">`;
+          hasValidPackage = true;
+        }
+      } else {
+        checkboxHtml = `✔️`;
+      }
+      
+      let infoTambahan = (p.sheetName === "Sheet2") ? `<br><small style="color:orange; font-weight:bold;">(Arsip)</small>` : "";
+
+      let rowHtml = `<tr class="${trClass}">
+        <td class="center-align">${checkboxHtml}</td>
+        <td>${p.noPaket}</td>
+        <td>${p.nama}</td>
+        <td>${p.jenis} ${warnText}</td>
+        <td>${p.tanggalMasuk}${infoTambahan}</td>
+        <td>${p.berat}</td>
+        <td>${p.bayar}</td>
+        <td><b>${isTaken ? 'SUDAH DIAMBIL' : 'BELUM DIAMBIL'}</b></td>
+      </tr>`;
+      tbody.innerHTML += rowHtml;
+    });
+    
+    document.getElementById('infoKustomer').innerText = `Paket Kustomer (No. HP: ${response.phone})`;
+    hitungTotal();
+    document.getElementById('errorCabang').style.display = hasWrongLocation ? 'block' : 'none';
+    document.getElementById('hasilPencarian').style.display = 'block';
+    document.getElementById('areaBayar').style.display = hasValidPackage ? 'block' : 'none';
+    
+    document.getElementById('areaBayar').scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }
+
+  function hitungTotal() {
+    let total = 0;
+    let checkboxes = document.querySelectorAll('.paket-checkbox:checked');
+    checkboxes.forEach(cb => {
+      total += parseFloat(cb.getAttribute('data-harga')) || 0;
+    });
+    document.getElementById('totalBayarText').innerText = `Total Pembayaran: HKD ${total}`;
+  }
+
+  async function konfirmasiAmbil() {
+    let selectedRows = Array.from(document.querySelectorAll('.paket-checkbox:checked')).map(cb => JSON.parse(cb.value));
+    if(selectedRows.length === 0) return alert('Silakan centang (✓) minimal satu paket yang akan diambil.');
+    
+    let metode = document.getElementById('metodeBayar').value;
+    let lokasi = document.getElementById('lokasiKasir').value; 
+    
+    document.getElementById('btnKonfirmasi').innerText = 'Menyimpan...';
+    
+    let payload = { action: 'confirmPickup', selectedItems: selectedRows, paymentType: metode, lokasiKasir: lokasi };
+    let response = await callAPI(payload);
+    
+    tampilkanToast(response.message);
+    document.getElementById('btnKonfirmasi').innerText = '✅ Konfirmasi & Simpan Transaksi';
+    document.getElementById('hasilPencarian').style.display = 'none';
+    document.getElementById('noPaket').value = '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function tampilkanToast(pesan) {
+    let toast = document.getElementById("toastNotif");
+    toast.innerText = pesan;
+    toast.className = "show";
+    setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+  }
+
+  async function lihatLaporan() {
+    let dateStr = document.getElementById('tanggalLaporan').value;
+    let lokasi = document.getElementById('lokasiKasir').value;
+    if(!dateStr) return;
+    document.getElementById('judulLaporanCabang').innerText = `Laporan Pendapatan: ${lokasi}`;
+    document.getElementById('printInfoCabang').innerText = lokasi.toUpperCase();
+    document.getElementById('printInfoTanggal').innerText = `Periode Tanggal: ${dateStr}`;
+    
+    let payload = { action: 'getReport', dateStr: dateStr, lokasiKasir: lokasi };
+    let response = await callAPI(payload);
+    
+    let tbody = document.querySelector('#tabelLaporan tbody');
+    tbody.innerHTML = '';
+    let subBox = document.getElementById('subtotalBox');
+    let btnCetak = document.getElementById('btnCetak');
+    
+    if(response.data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999;">Tidak ada transaksi pada tanggal ini.</td></tr>';
+      subBox.style.display = 'none';
+      btnCetak.style.display = 'none';
+    } else {
+      btnCetak.style.display = 'block'; 
+      let subtotals = { "Cash": 0, "Octopus": 0, "Alipay": 0, "Kartu Kredit": 0, "Kredit / Utang": 0, "Lainnya": 0 };
+
+      response.data.forEach(d => {
+        let jenis = d.jenisBayar;
+        if (subtotals[jenis] !== undefined) subtotals[jenis] += parseFloat(d.bayar) || 0;
+        else subtotals["Lainnya"] += parseFloat(d.bayar) || 0;
+
+        tbody.innerHTML += `<tr>
+          <td>${d.noPaket}</td>
+          <td>${d.nama}<br><small style="color:#666;">${d.telepon}</small></td>
+          <td>${d.waktu}</td>
+          <td>HKD ${d.bayar}</td>
+          <td>${d.jenisBayar}</td>
+        </tr>`;
+      });
+      
+      subBox.innerHTML = `
+        <div class="subtotal-col">
+          <strong>Rincian Pendapatan:</strong><br>
+          💵 Cash: HKD ${subtotals["Cash"]}<br>
+          💳 Octopus: HKD ${subtotals["Octopus"]}<br>
+          📱 Alipay: HKD ${subtotals["Alipay"]}
+        </div>
+        <div class="subtotal-col">
+          <br>
+          💳 Kartu Kredit: HKD ${subtotals["Kartu Kredit"]}<br>
+          📝 Kredit / Utang: HKD ${subtotals["Kredit / Utang"]}<br>
+          📦 Lainnya: HKD ${subtotals["Lainnya"]}
+        </div>
+      `;
+      subBox.style.display = 'flex';
+    }
+    document.getElementById('tabelLaporan').style.display = 'table';
+    document.getElementById('totalPendapatanText').style.display = 'block';
+    document.getElementById('totalPendapatanText').innerText = `Total Keseluruhan: HKD ${response.total}`;
+  }
+
+  function filterLaporan() {
+    let input = document.getElementById("searchLaporan").value.toLowerCase();
+    let tr = document.querySelectorAll("#tabelLaporan tbody tr");
+    tr.forEach(row => {
+      let text = row.textContent || row.innerText;
+      row.style.display = (text.toLowerCase().indexOf(input) > -1) ? "" : "none";
+    });
+  }
+</script>
+
+</body>
+</html>
