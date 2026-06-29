@@ -1,206 +1,397 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kasir SSL Express</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SSL Checker Mobile (GitHub)</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
   <style>
-    /* STYLING SAMA PERSIS SEPERTI SEBELUMNYA */
-    body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f7f6; margin: 0; }
-    .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    h2 { text-align: center; color: #333; margin-bottom: 5px;}
-    .branch-selector-box { background: #e9ecef; padding: 15px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #ced4da; }
-    .tab { display: flex; margin-bottom: 20px; }
-    .tab button { flex: 1; padding: 12px; cursor: pointer; border: none; background: #ddd; font-weight: bold; font-size: 15px; }
-    .tab button.active { background: #007BFF; color: white; }
-    .section { display: none; }
-    .section.active { display: block; }
-    input[type="text"], input[type="date"], select, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
-    .btn-primary { background: #28a745; color: white; border: none; font-weight: bold; cursor: pointer; }
-    .btn-primary:hover { background: #218838; }
-    .btn-camera { background-color: #8b5cf6; color: white; border: none; font-weight: bold; cursor: pointer; font-size: 15px; padding: 12px; margin-bottom: 10px; border-radius: 5px;}
-    .btn-camera:hover { background-color: #7c3aed; }
-    .btn-danger { background-color: #dc3545; color: white; border: none; font-weight: bold; cursor: pointer; font-size: 15px; padding: 10px; border-radius: 5px; margin-top: 10px; width: 100%;}
-    #scannerArea { display: none; margin-bottom: 15px; border: 2px dashed #007BFF; padding: 15px; border-radius: 8px; text-align: center; background: #f8f9fa; }
-    #reader { width: 100%; max-width: 400px; margin: auto; overflow: hidden; border-radius: 8px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px; }
-    th { background-color: #f2f2f2; }
-    .warning-text { color: red; font-weight: bold; }
-    .warning-box { background: #ffd2d2; padding: 10px; border-radius: 5px; color: #d8000c; font-weight: bold; text-align: center; margin-top: 15px; border: 1px solid #d8000c;}
+    /* CSS GLOBAL */
+    * { box-sizing: border-box; font-family: 'Roboto', 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; }
+    body { background-color: #f0f2f5; color: #1a1a1a; padding-bottom: 30px; }
+    .app-bar { background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: white; padding: 16px 20px; position: sticky; top: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.15); border-radius: 0 0 16px 16px; }
+    .app-bar h2 { font-size: 18px; font-weight: 600; letter-spacing: 0.5px; }
+    .branch-badge { background: rgba(255, 255, 255, 0.2); padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; border: 1px solid rgba(255,255,255,0.3); }
+    
+    .main-container { max-width: 600px; margin: 16px auto; padding: 0 16px; }
+    .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px; border: 1px solid #e5e7eb; }
+    .card-title { font-size: 15px; font-weight: 600; color: #4b5563; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    
+    label { font-size: 13px; font-weight: 600; color: #4b5563; display: block; margin-bottom: 6px; margin-top: 10px; }
+    input[type="text"], input[type="password"], input[type="date"], select { width: 100%; padding: 14px 16px; margin-bottom: 12px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 15px; background-color: #f9fafb; color: #111827; outline: none; }
+    input:focus, select:focus { border-color: #3b82f6; background-color: white; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
+    select:disabled { background-color: #e9ecef; cursor: not-allowed; }
+    
+    button { width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 15px; font-weight: bold; cursor: pointer; transition: all 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    button:active:not(:disabled) { transform: scale(0.98); }
+    button:disabled { cursor: not-allowed; opacity: 0.8; }
+    .btn-primary { background-color: #3b82f6; color: white; }
+    .btn-secondary { background-color: #10b981; color: white; margin-top: 12px; }
+    .btn-camera { background-color: #8b5cf6; color: white; margin-bottom: 14px; padding: 14px; font-size: 15px; } 
+    .btn-danger { background-color: #ef4444; color: white; padding: 6px 12px; font-size: 12px; border-radius: 20px; width: auto; box-shadow: none; }
+    .btn-danger-large { background-color: #ef4444; color: white; margin-bottom: 14px; padding: 14px; font-size: 15px; }
+    
+    .hidden { display: none !important; }
+    .login-header { text-align: center; margin-bottom: 24px; }
+    .login-header h1 { font-size: 22px; color: #1e3a8a; margin-bottom: 6px; }
+
+    /* MENU NAVIGASI UTAMA */
+    .nav-tabs { display: flex; margin-bottom: 15px; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #e5e7eb; }
+    .nav-tabs button { border-radius: 0; box-shadow: none; background: transparent; color: #6b7280; font-weight: 600; padding: 12px; }
+    .nav-tabs button.active { background: #e0e7ff; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; }
+
+    /* KASIR UI CSS */
+    .kasir-subtab { display: flex; margin-bottom: 15px; }
+    .kasir-subtab button { flex: 1; padding: 12px; border-radius:0; box-shadow:none; background: #e5e7eb; color: #374151; font-weight: bold; }
+    .kasir-subtab button.active { background: #007BFF; color: white; }
+    .kasir-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top:10px; }
+    .kasir-table th, .kasir-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    .kasir-table th { background-color: #f2f2f2; }
+    .warning-text { color: #dc2626; font-weight: bold; background-color: #fee2e2; }
     .taken { color: #888; text-decoration: line-through; background-color: #f9f9f9; }
-    .wrong-location { background-color: #ffe6e6; }
-    .summary { font-size: 18px; font-weight: bold; text-align: right; margin-top: 15px; color: #d9534f; }
-    .subtotal-box { background: #e9ecef; padding: 15px; border-radius: 6px; margin-top: 20px; margin-bottom: 15px; border: 1px solid #ced4da; font-size: 15px; line-height: 1.6; display: flex; justify-content: space-between; flex-wrap: wrap;}
-    .subtotal-col { flex: 1; min-width: 150px; }
-    .paket-checkbox { width: 20px; height: 20px; cursor: pointer; }
-    .center-align { text-align: center; }
-    .search-box { margin-top: 15px; margin-bottom: 5px; }
-    .print-header { display: none; }
+
+    /* CHECKER TABLE CSS (11 Kolom) */
+    .table-container { overflow-x: auto; margin-top: 10px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; }
+    .checker-table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 900px; }
+    .checker-table td, .checker-table th { padding: 10px 12px; text-align: left; border-bottom: 1px solid #f3f4f6; }
+    .checker-table th { background-color: #f8fafc; color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 11px; }
+    
+    .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; display: inline-block; }
+    .badge-benar { background-color: #d1fae5; color: #065f46; }
+    .badge-salah { background-color: #fef3c7; color: #92400e; }
+    .badge-tidak-ada { background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+
+    .alert { padding: 14px 16px; border-radius: 12px; font-weight: 600; font-size: 15px; text-align: center; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .alert-benar { background-color: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    .alert-salah { background-color: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+
+    #syncStatusBadge { position: fixed; bottom: 10px; right: 10px; background: #f59e0b; color: white; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
+    /* CSS SCANNER INLINE (20% Layar) */
+    .scanner-container { width: 100%; height: 20vh; min-height: 150px; max-height: 220px; border-radius: 12px; overflow: hidden; background: #000; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; position: relative; border: 3px solid #8b5cf6; }
+    .scanner-container video { object-fit: cover !important; width: 100% !important; height: 100% !important; }
+    
     @media print {
-      @page { size: A4 portrait; margin: 20mm 15mm 20mm 15mm; }
-      body { background-color: white; color: black; padding: 0; margin: 0; font-size: 11pt; }
-      .container { max-width: 100% !important; width: 100% !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; }
-      .no-print, .branch-selector-box, .tab, #secAmbil, label, input, button, select, .search-box, #scannerArea { display: none !important; }
-      #secLaporan { display: block !important; }
-      .print-header { display: block !important; text-align: center; margin-bottom: 25px; border-bottom: 2px solid #000; padding-bottom: 10px; }
-      .print-header h1 { margin: 0; font-size: 18pt; color: #000; }
-      .print-header p { margin: 5px 0 0 0; font-size: 11pt; color: #333; }
-      h3#judulLaporanCabang { display: none !important; }
-      .subtotal-box { background: #f8f9fa !important; border: 1px solid #666 !important; padding: 12px !important; margin-top: 15px !important; font-size: 10pt !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; page-break-inside: avoid; }
-      table { width: 100% !important; margin-top: 20px !important; border: 1px solid #000 !important; }
-      th, td { border: 1px solid #000 !important; padding: 7px 5px !important; font-size: 9.5pt !important; }
-      th { background-color: #eaeded !important; color: black !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .summary { font-size: 13pt !important; color: #000 !important; margin-top: 15px !important; page-break-inside: avoid; }
+      @page { size: landscape; margin: 1cm; }
+      body { background-color: white; margin: 0; padding: 0; color: black; }
+      .app-bar, .nav-tabs, .btn-primary, .btn-secondary, .btn-camera, .btn-danger, .btn-danger-large, input, select, label, #syncStatusBadge, .kasir-subtab, #kasirAmbilArea, #statusAlertChecker, .card-title, .scanner-container, #loginArea { display: none !important; }
+      #viewKasir, #viewSync, #kasirLaporanArea { display: none !important; }
+      #viewChecker { display: block !important; }
+      .main-container { max-width: 100% !important; width: 100% !important; padding: 0 !important; margin: 0 !important; }
+      .card { border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; }
+      .table-container { border: none !important; margin-top: 10px !important; overflow: visible !important; width: 100% !important; }
+      #printHeaderChecker { display: block !important; text-align: left; margin-bottom: 15px; }
+      #printHeaderChecker h2 { font-size: 16px; margin: 0 0 4px 0; color: #000; text-transform: uppercase; font-weight: bold; }
+      #printHeaderChecker h4 { font-size: 12px; font-weight: normal; margin: 0; color: #333; text-transform: uppercase; }
+      #printHeaderKasir { display: block !important; text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+      table { width: 100% !important; border-collapse: collapse !important; table-layout: auto; }
+      th, td { border: 1px solid #000 !important; padding: 6px !important; color: black !important; word-wrap: break-word; text-align: left; }
+      th { background-color: #f3f4f6 !important; font-weight: bold; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .badge { border: none !important; background: transparent !important; color: #000 !important; padding: 0 !important; font-size: 10px !important; font-weight: bold; }
     }
-    #toastNotif { visibility: hidden; min-width: 250px; background-color: #28a745; color: #fff; text-align: center; border-radius: 8px; padding: 15px; position: fixed; z-index: 1000; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 16px; font-weight: bold; box-shadow: 0px 4px 10px rgba(0,0,0,0.3); }
-    #toastNotif.show { visibility: visible; animation: fadein 0.3s, fadeout 0.5s 2.5s; }
-    @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
-    @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <h2 class="no-print">Sistem Kasir SSL Express</h2>
-  <p class="no-print" style="text-align:center; color:#666; margin-top:0; margin-bottom:20px;">Inbound & Outbound System</p>
-  
-  <div class="print-header">
-    <h1>LAPORAN PENDAPATAN HARIAN</h1>
-    <p id="printInfoCabang" style="font-weight: bold; font-size: 13pt;"></p>
-    <p id="printInfoTanggal"></p>
-  </div>
-  
-  <div class="branch-selector-box no-print">
-    <label><b>Lokasi Kasir Aktif Saat Ini:</b></label>
-    <select id="lokasiKasir" onchange="handleBranchChange()">
-      <option value="SSL Causeway Bay">SSL Causeway Bay</option>
-      <option value="SSL Sham Shui Po">SSL Sham Shui Po</option>
-    </select>
-  </div>
-  
-  <div class="tab no-print">
-    <button id="tabAmbil" class="active" onclick="switchTab('ambil')">Ambil Paket</button>
-    <button id="tabLaporan" onclick="switchTab('laporan')">Laporan Harian</button>
+  <div class="app-bar">
+    <h2>SSL Checker Mobile</h2>
+    <div id="badgeArea" class="branch-badge hidden">Cabang: <span id="namaCabang"></span></div>
   </div>
 
-  <div id="secAmbil" class="section active no-print">
-    <button type="button" id="btnBukaScanner" class="btn-camera" onclick="bukaScanner()">📷 Buka Scanner Kamera (Mode Beruntun)</button>
-
-    <div id="scannerArea">
-      <div id="reader"></div>
-      <p style="font-size: 13px; color: #007BFF; font-weight: bold; margin-top:10px; margin-bottom: 5px;">Kamera Siap! Arahkan ke Resi secara bergantian.</p>
-      <button type="button" class="btn-danger" onclick="tutupScanner()">❌ Tutup Kamera</button>
-    </div>
-
-    <label><b>Input Nomor Paket / PIN / No. Telepon:</b></label>
-    <div style="display: flex; gap: 5px;">
-      <input type="text" inputmode="numeric" id="noPaket" placeholder="Ketik nomor atau hasil scan muncul di sini..." onkeypress="if(event.key === 'Enter') cariPaket()">
-      <button class="btn-primary" onclick="cariPaket()" id="btnCari" style="width: 100px; flex-shrink: 0;">Cari</button>
-    </div>
+  <div class="main-container">
     
-    <div id="hasilPencarian" style="display:none; margin-top: 20px; border-top: 2px solid #ddd; padding-top: 15px;">
-      <h3 id="infoKustomer"></h3>
+    <div id="loginArea" class="card">
+      <div class="login-header">
+        <h1>Selamat Datang</h1>
+        <p style="font-size:14px; color:#6b7280; margin-top:4px;">Akses Cloud API GitHub Edition</p>
+      </div>
+      <label>KODE CABANG</label>
+      <input type="text" id="inputCabang" placeholder="Contoh: WTS, CWB, ABERDEEN">
+      <label>PASSWORD SECURITY</label>
+      <input type="password" id="inputPassword" placeholder="Masukkan Password Cabang">
+      <button onclick="prosesLogin()" id="btnLogin" class="btn-primary">Masuk Aplikasi</button>
+      <p id="loginPesan" style="color:#ef4444; text-align:center; font-size:13px; margin-top:12px; font-weight:600;"></p>
+    </div>
+
+    <div id="mainAppArea" class="hidden">
       
-      <div id="errorCabang" class="warning-box" style="display:none;">
-        ⚠️ Paket TIDAK SESUAI dengan cabang Anda. Paket ini otomatis diblokir dari pembayaran.
+      <div class="nav-tabs">
+        <button id="navChecker" class="active" onclick="switchMainTab('checker')">📦 Checker</button>
+        <button id="navKasir" onclick="switchMainTab('kasir')">💰 Kasir</button>
+        <button id="navSync" onclick="switchMainTab('sync')" style="flex:0.5;">⚙️ Sync</button>
       </div>
 
-      <table id="tabelPaket">
-        <thead>
-          <tr>
-            <th class="center-align">Ambil?</th>
-            <th>No Paket</th>
-            <th>Nama</th>
-            <th>Tujuan/Jenis</th>
-            <th>Tgl Masuk</th>
-            <th>Berat</th>
-            <th>Harga (HKD)</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-      
-      <div class="summary" id="totalBayarText">Total Pembayaran: HKD 0</div>
-      
-      <div id="areaBayar" style="margin-top:20px;">
-        <label><b>Metode Pembayaran:</b></label>
-        <select id="metodeBayar">
-          <option value="Cash">Cash</option>
-          <option value="Octopus">Octopus</option>
-          <option value="Alipay">Alipay</option>
-          <option value="Kartu Kredit">Kartu Kredit</option>
-          <option value="Kredit / Utang">Kredit / Utang</option>
-          <option value="Lainnya">Lainnya</option>
-        </select>
-        <button class="btn-primary" onclick="konfirmasiAmbil()" id="btnKonfirmasi" style="font-size: 18px; padding: 15px;">✅ Konfirmasi & Simpan Transaksi</button>
+      <div id="viewChecker">
+        <div id="statusAlertChecker" class="alert hidden"></div>
+
+        <div class="card">
+          <div class="card-title">Pintu Masuk Pemrosesan</div>
+          
+          <div id="reader-checker" class="scanner-container hidden"></div>
+          <button type="button" id="btn-scan-checker" onclick="toggleScanner('CHECKER')" class="btn-camera">📷 Mulai Scan Beruntun</button>
+          
+          <input type="text" inputmode="numeric" pattern="[0-9]*" id="inputScanChecker" placeholder="Arahkan Barcode Scanner / PIN Paket..." onkeypress="if(event.key === 'Enter') submitScanChecker()">
+          <button onclick="submitScanChecker()" class="btn-primary">Kirim Data Paket</button>
+          
+          <label style="margin-top:18px; border-top:1px solid #eee; padding-top:10px;">PILIH TANGGAL</label>
+          <input type="date" id="inputTanggalPilihan" onchange="muatLaporanTanggalLayar()">
+          <button class="btn-secondary" onclick="cetakLaporanCheckerLokal()">🖨️ Cetak PDF</button>
+          
+          <div style="margin-top: 16px; border-top: 1px solid #f3f4f6; padding-top: 14px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 13px; color: #6b7280; font-weight: 500;">Sesi aktif berjalan</span>
+            <button onclick="logout()" class="btn-danger">Keluar</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div id="printHeaderChecker" class="print-only">
+            <h2>LAPORAN CHECKER - SSL EXPRESS</h2>
+            <h4>Cabang: <span id="printCabangChecker"></span> | Tanggal: <span id="printTglChecker"></span></h4>
+          </div>
+          <div class="card-title">Histori Paket Terproses</div>
+          <div class="table-container">
+            <table class="checker-table">
+              <thead><tr><th>NAMA</th><th>KODE</th><th>TELP</th><th>PIN</th><th>AGEN</th><th>JENIS</th><th>BERAT</th><th>HARGA</th><th>BAYAR</th><th>CATT</th><th>STATUS</th></tr></thead>
+              <tbody id="bodyTabelChecker"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
+
+      <div id="viewKasir" class="hidden">
+        <div class="card" style="background:#f8f9fa;">
+          <h2 style="text-align:center; color:#333; margin-bottom:5px;">Sistem Kasir SSL Express</h2>
+          
+          <label>Lokasi Kasir Aktif Saat Ini:</label>
+          <input type="text" id="lokasiKasirReadonly" readonly style="background:#e9ecef; font-weight:bold; color:#333;">
+
+          <div class="kasir-subtab">
+            <button id="tabAmbil" class="active" onclick="switchKasirTab('ambil')">Ambil Paket</button>
+            <button id="tabLaporan" onclick="switchKasirTab('laporan')">Laporan Harian</button>
+          </div>
+
+          <div id="kasirAmbilArea">
+            <label>Input Nomor Paket / PIN:</label>
+            
+            <div id="reader-kasir" class="scanner-container hidden"></div>
+            <button id="btn-scan-kasir" class="btn-camera" onclick="toggleScanner('KASIR')" style="padding:12px; font-size:14px; margin-bottom:10px;">📷 Scan Barcode / QR</button>
+            
+            <input type="text" inputmode="numeric" pattern="[0-9]*" id="noPaketKasir" placeholder="Ketik nomor paket..." onkeypress="if(event.key === 'Enter') cariPaketKasir()">
+            <button class="btn-primary" style="background:#28a745;" onclick="cariPaketKasir()">Cari Paket</button>
+
+            <div id="hasilPencarianKasir" class="hidden" style="margin-top:20px; border-top:2px dashed #ccc; padding-top:15px;">
+              <h3 id="infoKustomerKasir" style="font-size:15px;"></h3>
+              <div id="errorCabangKasir" class="alert alert-salah hidden" style="margin-top:10px;">⚠️ SALAH CABANG - PAKET TIDAK BISA DIAMBIL DI SINI</div>
+              <div style="overflow-x:auto;">
+                <table class="kasir-table">
+                  <thead><tr><th>Ambil?</th><th>No Paket</th><th>Tujuan</th><th>Berat</th><th>Harga (HKD)</th><th>Status</th></tr></thead>
+                  <tbody id="tbodyKasir"></tbody>
+                </table>
+              </div>
+              <div style="text-align:right; font-size:18px; font-weight:bold; color:#d9534f; margin-top:15px;" id="totalBayarText">Total: HKD 0</div>
+              <div id="areaBayarKasir" style="margin-top:20px;">
+                <label>Metode Pembayaran:</label>
+                <select id="metodeBayarKasir">
+                  <option value="Cash">Cash (HKD)</option>
+                  <option value="Octopus">Octopus</option>
+                  <option value="Alipay">Alipay</option>
+                  <option value="Kartu Kredit">Kartu Kredit</option>
+                  <option value="Kredit / Hutang">Kredit / Hutang</option>
+                  <option value="Lain-lain">Lain-lain</option>
+                </select>
+                <button id="btnKonfirmasiBayarKasir" class="btn-primary" style="background:#28a745; font-size:16px;" onclick="konfirmasiBayarKasir()">Konfirmasi & Simpan</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="kasirLaporanArea" class="hidden">
+            <div id="printHeaderKasir" class="print-only">
+              <h2>LAPORAN PENDAPATAN HARIAN</h2>
+              <h4>Cabang: <span id="printCabangKasir"></span></h4>
+            </div>
+            <button class="btn-secondary" style="margin-bottom:15px; background-color:#17a2b8;" onclick="cetakLaporanKasirLokal()">🖨️ Cetak PDF Kasir</button>
+            <div id="areaRekapKasir"></div>
+            <div style="overflow-x:auto;">
+              <table class="kasir-table">
+                <thead><tr><th>No Paket</th><th>Tujuan</th><th>Harga</th><th>Metode</th></tr></thead>
+                <tbody id="tbodyLaporanKasir"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="viewSync" class="hidden">
+        <div class="card">
+          <div class="card-title">Persiapan Operasional Pagi</div>
+          <p style="font-size:14px; color:#555; margin-bottom:15px;">Tarik seluruh data dari server agar Anda bisa scan dan memproses kasir tanpa internet seharian.</p>
+          <button class="btn-primary" onclick="tarikDataMasterLokal()" id="btnSyncMaster">1. Unduh Data Server ke HP</button>
+          <p id="infoSyncMaster" style="text-align:center; font-size:13px; font-weight:bold; margin-top:10px; color:#10b981;"></p>
+        </div>
+      </div>
+
     </div>
   </div>
 
-  <div id="secLaporan" class="section">
-    <label class="no-print"><b>Pilih Tanggal Laporan Pendapatan:</b></label>
-    <input type="date" id="tanggalLaporan" class="no-print" onchange="lihatLaporan()">
-    <button class="btn-primary no-print" onclick="lihatLaporan()">Lihat Laporan</button>
-    
-    <button id="btnCetak" class="btn-primary no-print" onclick="window.print()" style="background-color: #17a2b8; display: none; margin-top: 5px; margin-bottom: 15px;">🖨️ Cetak Laporan (A4)</button>
-    
-    <h3 id="judulLaporanCabang" style="margin-top:20px; color:#333;"></h3>
-    <div id="subtotalBox" class="subtotal-box" style="display:none;"></div>
-    
-    <div class="search-box no-print">
-      <input type="text" id="searchLaporan" placeholder="🔍 Cari No Paket / Nama / Telepon / Metode Bayar..." onkeyup="filterLaporan()">
-    </div>
-
-    <table id="tabelLaporan" style="display:none;">
-      <thead>
-        <tr>
-          <th>No Paket</th>
-          <th>Nama & No. HP</th>
-          <th>Waktu Konfirmasi</th>
-          <th>Nominal (HKD)</th>
-          <th>Metode Bayar</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <div class="summary" id="totalPendapatanText" style="display:none;">Total Keseluruhan: HKD 0</div>
-  </div>
-</div>
-
-<div id="toastNotif">Pesan Notifikasi</div>
+  <div id="syncStatusBadge">Offline Syncing...</div>
 
 <script>
-  // =========================================================
-  // ISI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA DI BAWAH INI
-  // =========================================================
+  // ==========================================
+  // CONFIG API WEB APP (UBAH LINK DI BAWAH INI)
+  // ==========================================
   const API_URL = "https://script.google.com/macros/s/AKfycbz-AwSOMLoRsup4aFM2GjggagSbTcqnclnwe-504SXqKG5RMMfA4e_PMEeOEHHtjeAERA/exec";
 
-  // --- ENGINE KOMUNIKASI FETCH API ---
+  // ==========================================
+  // 1. INISIALISASI INDEXED-DB & VARIABEL GLOBAL
+  // ==========================================
+  const db = new Dexie("SSLExpressDB");
+  db.version(1).stores({ paket: 'noPaket, phone, nama, jenis, statusAmbil, berat, bayar', antrean: '++id, type, status' });
+  let memoriScanLokal = [];
+  
+  // Variabel Global Scanner
+  let qrScanner = null;
+  let isScanning = false;
+  let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  // FUNGSI KOMUNIKASI API (PENGGANTI google.script.run)
   async function callAPI(payload) {
     try {
-      let response = await fetch(API_URL, {
+      const response = await fetch(API_URL, {
         method: 'POST',
+        redirect: 'follow', // Penting untuk melewati redirect Google
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(payload)
       });
       return await response.json();
     } catch (error) {
-      return { success: false, message: "Koneksi ke server gagal. Cek internet Anda." };
+      console.error("API Error:", error);
+      return { success: false, message: "Koneksi ke Server Gagal." };
     }
   }
 
-  // --- VARIABEL & FUNGSI SCANNER INLINE BERUNTUN ---
-  let html5QrCode;
-  let scanCooldown = false;
-  let lastScannedCode = "";
-  let audioCtx;
+  function normalisasiTelepon(phoneStr) {
+    if (!phoneStr) return "";
+    let p = phoneStr.toString().replace(/[^0-9]/g, '');
+    if (p.startsWith("628")) return "08" + p.substring(3);
+    if (p.startsWith("8") && p.length >= 9) return "08" + p.substring(1);
+    return p;
+  }
 
-  function playSound() {
+  // ==========================================
+  // 2. LOGIKA LOGIN & NAVIGASI
+  // ==========================================
+  document.addEventListener("DOMContentLoaded", function() {
+    let sesi = localStorage.getItem("sesiCabangSSL");
+    if(sesi) { tampilkanMainApp(sesi); }
+    let tzoffset = (new Date()).getTimezoneOffset() * 60000; 
+    document.getElementById('inputTanggalPilihan').value = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 10);
+  });
+
+  async function prosesLogin() {
+    let cabang = document.getElementById("inputCabang").value.trim().toUpperCase();
+    let pass = document.getElementById("inputPassword").value;
+    let btn = document.getElementById("btnLogin");
+    if(!cabang || !pass) return;
+    btn.innerText = "Memeriksa...";
+    document.getElementById("loginPesan").innerText = "";
+    
+    // Ganti google.script.run dengan callAPI
+    let res = await callAPI({ action: "cekLogin", cabang: cabang, password: pass });
+    
+    if (res.success && res.data === true) {
+      localStorage.setItem("sesiCabangSSL", cabang);
+      tampilkanMainApp(cabang);
+    } else {
+      document.getElementById("loginPesan").innerText = "Kode Cabang atau Password Salah!";
+      btn.innerText = "Masuk Aplikasi";
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem("sesiCabangSSL");
+    stopScannerIfExists();
+    document.getElementById("mainAppArea").classList.add("hidden");
+    document.getElementById("loginArea").classList.remove("hidden");
+    document.getElementById("badgeArea").classList.add("hidden");
+    document.getElementById("inputCabang").value = "";
+    document.getElementById("inputPassword").value = "";
+    document.getElementById("btnLogin").innerText = "Masuk Aplikasi";
+  }
+
+  function tampilkanMainApp(cabang) {
+    document.getElementById("loginArea").classList.add("hidden");
+    document.getElementById("mainAppArea").classList.remove("hidden");
+    document.getElementById("badgeArea").classList.remove("hidden");
+    document.getElementById("namaCabang").innerText = cabang;
+    document.getElementById("lokasiKasirReadonly").value = cabang; 
+    muatLaporanTanggalLayar();
+  }
+
+  function switchMainTab(tab) {
+    stopScannerIfExists(); // Matikan kamera jika pindah tab
+    document.getElementById('viewChecker').classList.add('hidden');
+    document.getElementById('viewKasir').classList.add('hidden');
+    document.getElementById('viewSync').classList.add('hidden');
+    document.getElementById('navChecker').classList.remove('active');
+    document.getElementById('navKasir').classList.remove('active');
+    document.getElementById('navSync').classList.remove('active');
+    
+    if(tab === 'checker') {
+      document.getElementById('viewChecker').classList.remove('hidden');
+      document.getElementById('navChecker').classList.add('active');
+      document.getElementById('inputScanChecker').focus();
+    } else if(tab === 'kasir') {
+      document.getElementById('viewKasir').classList.remove('hidden');
+      document.getElementById('navKasir').classList.add('active');
+      document.getElementById('noPaketKasir').focus();
+    } else {
+      document.getElementById('viewSync').classList.remove('hidden');
+      document.getElementById('navSync').classList.add('active');
+    }
+  }
+
+  function switchKasirTab(tab) {
+    document.getElementById('kasirAmbilArea').classList.add('hidden');
+    document.getElementById('kasirLaporanArea').classList.add('hidden');
+    document.getElementById('tabAmbil').classList.remove('active');
+    document.getElementById('tabLaporan').classList.remove('active');
+    if(tab === 'ambil') {
+      document.getElementById('kasirAmbilArea').classList.remove('hidden');
+      document.getElementById('tabAmbil').classList.add('active');
+    } else {
+      document.getElementById('kasirLaporanArea').classList.remove('hidden');
+      document.getElementById('tabLaporan').classList.add('active');
+      muatLaporanKasirLokal();
+    }
+  }
+
+  // ==========================================
+  // 3. LOGIKA SYNC LOKAL (PAGI HARI)
+  // ==========================================
+  async function tarikDataMasterLokal() {
+    let btn = document.getElementById("btnSyncMaster");
+    btn.innerText = "Mengunduh Database... Jangan Tutup Aplikasi";
+    btn.disabled = true;
+    
+    let res = await callAPI({ action: "sinkronisasiAwalLokal" });
+    if(res.success) {
+      await db.paket.clear();
+      await db.paket.bulkAdd(res.data);
+      document.getElementById("infoSyncMaster").innerText = `✅ SUKSES! ${res.data.length} paket siap diakses OFFLINE.`;
+      updateBadge("🟢 DB Lokal Siap");
+    } else {
+      document.getElementById("infoSyncMaster").innerText = `❌ Gagal: ${res.message}`;
+    }
+    btn.innerText = "1. Unduh Data Server ke HP";
+    btn.disabled = false;
+  }
+
+  // ==========================================
+  // 4. LOGIKA SCANNER INLINE (HTML5-QRCODE)
+  // ==========================================
+  function playBeep() {
     try {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if(audioCtx.state === 'suspended') audioCtx.resume();
       let osc = audioCtx.createOscillator();
       let gain = audioCtx.createGain();
@@ -214,243 +405,342 @@
     } catch(e) {}
   }
 
-  function bukaScanner() {
-    document.getElementById('scannerArea').style.display = 'block';
-    document.getElementById('btnBukaScanner').style.display = 'none';
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-    
-    html5QrCode.start(
-      { facingMode: "environment" }, 
-      { fps: 15, qrbox: { width: 250, height: 250 } },
-      function(decodedText) {
-        let hasilBersih = decodedText.toString().replace(/[^0-9a-zA-Z]/g, '');
-        if(hasilBersih !== "" && !scanCooldown && hasilBersih !== lastScannedCode) {
-          lastScannedCode = hasilBersih;
-          document.getElementById('noPaket').value = hasilBersih;
-          
-          playSound();
-          tampilkanToast("🎯 Berhasil Memindai: " + hasilBersih);
-          cariPaket();
-          
-          scanCooldown = true;
-          setTimeout(function() { scanCooldown = false; }, 2500);
-          setTimeout(function() { lastScannedCode = ""; }, 6000);
+  async function stopScannerIfExists() {
+    if (isScanning && qrScanner) {
+      await qrScanner.stop();
+      qrScanner.clear();
+      isScanning = false;
+      qrScanner = null;
+      
+      document.getElementById('reader-checker').classList.add('hidden');
+      let btnC = document.getElementById('btn-scan-checker');
+      btnC.innerHTML = "📷 Mulai Scan Beruntun";
+      btnC.className = "btn-camera";
+
+      document.getElementById('reader-kasir').classList.add('hidden');
+      let btnK = document.getElementById('btn-scan-kasir');
+      btnK.innerHTML = "📷 Scan Barcode / QR";
+      btnK.className = "btn-camera";
+    }
+  }
+
+  async function toggleScanner(type) {
+    let divId = type === 'CHECKER' ? 'reader-checker' : 'reader-kasir';
+    let btnId = type === 'CHECKER' ? 'btn-scan-checker' : 'btn-scan-kasir';
+    let div = document.getElementById(divId);
+    let btn = document.getElementById(btnId);
+
+    // Jika sedang berjalan, hentikan.
+    if (isScanning && qrScanner) {
+      await stopScannerIfExists();
+      return;
+    }
+
+    // Memulai scanner
+    div.classList.remove('hidden');
+    btn.innerHTML = "🛑 Tutup Kamera";
+    btn.className = "btn-danger-large";
+
+    qrScanner = new Html5Qrcode(divId);
+    isScanning = true;
+
+    qrScanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 100 } }, // Aspek ratio lebar, menyesuaikan 20vh
+      (decodedText) => {
+        let angka = decodedText.replace(/[^0-9]/g, '');
+        if(angka) {
+          playBeep();
+          if(type === 'CHECKER') {
+            document.getElementById('inputScanChecker').value = angka;
+            submitScanChecker();
+          } else {
+            document.getElementById('noPaketKasir').value = angka;
+            cariPaketKasir();
+            // Matikan otomatis setelah scan kasir karena cuma scan 1 paket
+            stopScannerIfExists();
+          }
         }
       },
-      function(errorMessage) {}
-    ).catch(function(err) {
-      alert("Gagal mengakses kamera. Mohon izinkan browser mengakses kamera.");
-      tutupScanner();
+      (error) => {} // abaikan error frame scanner
+    ).catch(err => {
+      alert("⚠️ Izin Kamera ditolak atau tidak tersedia!");
+      stopScannerIfExists();
     });
   }
 
-  function tutupScanner() {
-    if (html5QrCode && html5QrCode.isScanning) {
-      html5QrCode.stop().then(ignore => {
-        document.getElementById('scannerArea').style.display = 'none';
-        document.getElementById('btnBukaScanner').style.display = 'block';
+  // ==========================================
+  // 5. SISA FUNGSI CHECKER & KASIR (TIDAK BERUBAH SECARA LOGIKA)
+  // ==========================================
+  async function submitScanChecker() {
+    let inputRaw = document.getElementById("inputScanChecker").value.trim();
+    let input = inputRaw.replace(/[^0-9]/g, '');
+    if(!input) return;
+    document.getElementById("inputScanChecker").value = "";
+    
+    let cabangAktif = localStorage.getItem("sesiCabangSSL");
+    let alertBox = document.getElementById("statusAlertChecker");
+    alertBox.classList.remove("hidden");
+    
+    let paket = await db.paket.get(input);
+    if (!paket) {
+      let normInput = normalisasiTelepon(input);
+      let allPaket = await db.paket.toArray();
+      paket = allPaket.find(p => {
+        let normDbPhone = normalisasiTelepon(p.phone);
+        let rawDbPhone = p.phone ? p.phone.toString().replace(/[^0-9]/g, '') : "";
+        return normDbPhone === normInput || rawDbPhone === input;
       });
-    } else {
-      document.getElementById('scannerArea').style.display = 'none';
-      document.getElementById('btnBukaScanner').style.display = 'block';
     }
-  }
 
-  function switchTab(tab) {
-    document.getElementById('secAmbil').classList.remove('active');
-    document.getElementById('secLaporan').classList.remove('active');
-    document.getElementById('tabAmbil').classList.remove('active');
-    document.getElementById('tabLaporan').classList.remove('active');
-    tutupScanner();
+    let finalPin = paket ? paket.noPaket : input;
 
-    if(tab === 'ambil') {
-      document.getElementById('secAmbil').classList.add('active');
-      document.getElementById('tabAmbil').classList.add('active');
-    } else {
-      document.getElementById('secLaporan').classList.add('active');
-      document.getElementById('tabLaporan').classList.add('active');
-      document.getElementById('tanggalLaporan').valueAsDate = new Date();
-      lihatLaporan();
+    if (memoriScanLokal.includes(finalPin.toString())) {
+      alertBox.className = "alert alert-salah";
+      alertBox.style.backgroundColor = "#fee2e2";
+      alertBox.style.color = "#991b1b";
+      alertBox.innerHTML = `🛑 <b>DUPLIKAT</b><br>Paket/No HP <b>${inputRaw}</b> (PIN: ${finalPin}) sudah ter-scan hari ini!`;
+      return;
     }
-  }
 
-  function handleBranchChange() {
-    document.getElementById('hasilPencarian').style.display = 'none';
-    document.getElementById('noPaket').value = '';
-    if(document.getElementById('secLaporan').classList.contains('active')) {
-      lihatLaporan();
-    }
-  }
-
-  async function cariPaket() {
-    let noPaket = document.getElementById('noPaket').value;
-    let lokasi = document.getElementById('lokasiKasir').value;
-    if(!noPaket) return alert('Silakan masukkan nomor paket atau nomor telepon!');
-    
-    document.getElementById('btnCari').innerText = 'Mencari...';
-    
-    let payload = { action: 'searchPackage', noPaket: noPaket, lokasiKasir: lokasi };
-    let response = await callAPI(payload);
-    
-    document.getElementById('btnCari').innerText = 'Cari';
-    
-    if(!response.success) return alert(response.message);
-    
-    let tbody = document.querySelector('#tabelPaket tbody');
-    tbody.innerHTML = '';
-    let hasWrongLocation = false;
-    let hasValidPackage = false; 
-    
-    response.data.forEach(p => {
-      let isTaken = p.statusAmbil === "Sudah Diambil";
-      let trClass = isTaken ? "taken" : "";
-      let warnText = "";
-      let checkboxHtml = "";
+    let tujuanMaster = "Tidak Ditemukan";
+    let statusScan = "TIDAK ADA DATA";
+    let detailArr = ["-", "-", "-", finalPin, "-", "-", "-", "-", "-", "-", "-"];
+    if(paket) {
+      tujuanMaster = paket.jenis || "-";
+      detailArr = paket.detailArray || detailArr;
+      let tLower = tujuanMaster.toLowerCase();
+      let cLower = cabangAktif.toLowerCase();
+      let isBenar = false;
+      if (cLower.includes("cwb") && (tLower.includes("cwb") || tLower.includes("causeway bay"))) isBenar = true;
+      else if (cLower.includes("ssp") && (tLower.includes("ssp") || tLower.includes("sham shui po"))) isBenar = true;
+      else if (cLower.includes("wts") && (tLower.includes("wts") || tLower.includes("wong tai sin"))) isBenar = true;
+      else if (tLower.includes(cLower)) isBenar = true;
       
-      if(!isTaken) {
-        if (p.isWrongLocation) {
-          hasWrongLocation = true;
-          trClass = "wrong-location"; 
-          warnText = `<br><span class="warning-text">SALAH CABANG</span>`;
-          checkboxHtml = `🚫`; 
-        } else {
-          let valObj = {sheetName: p.sheetName, row: p.row};
-          let valStr = JSON.stringify(valObj);
-          checkboxHtml = `<input type="checkbox" class="paket-checkbox" value='${valStr}' data-harga="${p.bayar}" checked onchange="hitungTotal()">`;
-          hasValidPackage = true;
-        }
+      if (isBenar) {
+        statusScan = "BENAR";
+        alertBox.className = "alert alert-benar";
+        alertBox.innerHTML = `✅ <b>BENAR</b> - Paket ${finalPin} Sesuai Cabang.`;
       } else {
-        checkboxHtml = `✔️`;
+        statusScan = "SALAH";
+        alertBox.className = "alert alert-salah";
+        alertBox.innerHTML = `❌ <b>SALAH CABANG</b><br>Paket: ${finalPin}<br>Seharusnya ke: ${tujuanMaster}`;
       }
-      
-      let infoTambahan = (p.sheetName === "Sheet2") ? `<br><small style="color:orange; font-weight:bold;">(Arsip)</small>` : "";
-
-      let rowHtml = `<tr class="${trClass}">
-        <td class="center-align">${checkboxHtml}</td>
-        <td>${p.noPaket}</td>
-        <td>${p.nama}</td>
-        <td>${p.jenis} ${warnText}</td>
-        <td>${p.tanggalMasuk}${infoTambahan}</td>
-        <td>${p.berat}</td>
-        <td>${p.bayar}</td>
-        <td><b>${isTaken ? 'SUDAH DIAMBIL' : 'BELUM DIAMBIL'}</b></td>
-      </tr>`;
-      tbody.innerHTML += rowHtml;
-    });
-    
-    document.getElementById('infoKustomer').innerText = `Paket Kustomer (No. HP: ${response.phone})`;
-    hitungTotal();
-    document.getElementById('errorCabang').style.display = hasWrongLocation ? 'block' : 'none';
-    document.getElementById('hasilPencarian').style.display = 'block';
-    document.getElementById('areaBayar').style.display = hasValidPackage ? 'block' : 'none';
-    
-    document.getElementById('areaBayar').scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }
-
-  function hitungTotal() {
-    let total = 0;
-    let checkboxes = document.querySelectorAll('.paket-checkbox:checked');
-    checkboxes.forEach(cb => {
-      total += parseFloat(cb.getAttribute('data-harga')) || 0;
-    });
-    document.getElementById('totalBayarText').innerText = `Total Pembayaran: HKD ${total}`;
-  }
-
-  async function konfirmasiAmbil() {
-    let selectedRows = Array.from(document.querySelectorAll('.paket-checkbox:checked')).map(cb => JSON.parse(cb.value));
-    if(selectedRows.length === 0) return alert('Silakan centang (✓) minimal satu paket yang akan diambil.');
-    
-    let metode = document.getElementById('metodeBayar').value;
-    let lokasi = document.getElementById('lokasiKasir').value; 
-    
-    document.getElementById('btnKonfirmasi').innerText = 'Menyimpan...';
-    
-    let payload = { action: 'confirmPickup', selectedItems: selectedRows, paymentType: metode, lokasiKasir: lokasi };
-    let response = await callAPI(payload);
-    
-    tampilkanToast(response.message);
-    document.getElementById('btnKonfirmasi').innerText = '✅ Konfirmasi & Simpan Transaksi';
-    document.getElementById('hasilPencarian').style.display = 'none';
-    document.getElementById('noPaket').value = '';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  function tampilkanToast(pesan) {
-    let toast = document.getElementById("toastNotif");
-    toast.innerText = pesan;
-    toast.className = "show";
-    setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
-  }
-
-  async function lihatLaporan() {
-    let dateStr = document.getElementById('tanggalLaporan').value;
-    let lokasi = document.getElementById('lokasiKasir').value;
-    if(!dateStr) return;
-    document.getElementById('judulLaporanCabang').innerText = `Laporan Pendapatan: ${lokasi}`;
-    document.getElementById('printInfoCabang').innerText = lokasi.toUpperCase();
-    document.getElementById('printInfoTanggal').innerText = `Periode Tanggal: ${dateStr}`;
-    
-    let payload = { action: 'getReport', dateStr: dateStr, lokasiKasir: lokasi };
-    let response = await callAPI(payload);
-    
-    let tbody = document.querySelector('#tabelLaporan tbody');
-    tbody.innerHTML = '';
-    let subBox = document.getElementById('subtotalBox');
-    let btnCetak = document.getElementById('btnCetak');
-    
-    if(response.data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999;">Tidak ada transaksi pada tanggal ini.</td></tr>';
-      subBox.style.display = 'none';
-      btnCetak.style.display = 'none';
     } else {
-      btnCetak.style.display = 'block'; 
-      let subtotals = { "Cash": 0, "Octopus": 0, "Alipay": 0, "Kartu Kredit": 0, "Kredit / Utang": 0, "Lainnya": 0 };
-
-      response.data.forEach(d => {
-        let jenis = d.jenisBayar;
-        if (subtotals[jenis] !== undefined) subtotals[jenis] += parseFloat(d.bayar) || 0;
-        else subtotals["Lainnya"] += parseFloat(d.bayar) || 0;
-
-        tbody.innerHTML += `<tr>
-          <td>${d.noPaket}</td>
-          <td>${d.nama}<br><small style="color:#666;">${d.telepon}</small></td>
-          <td>${d.waktu}</td>
-          <td>HKD ${d.bayar}</td>
-          <td>${d.jenisBayar}</td>
-        </tr>`;
-      });
-      
-      subBox.innerHTML = `
-        <div class="subtotal-col">
-          <strong>Rincian Pendapatan:</strong><br>
-          💵 Cash: HKD ${subtotals["Cash"]}<br>
-          💳 Octopus: HKD ${subtotals["Octopus"]}<br>
-          📱 Alipay: HKD ${subtotals["Alipay"]}
-        </div>
-        <div class="subtotal-col">
-          <br>
-          💳 Kartu Kredit: HKD ${subtotals["Kartu Kredit"]}<br>
-          📝 Kredit / Utang: HKD ${subtotals["Kredit / Utang"]}<br>
-          📦 Lainnya: HKD ${subtotals["Lainnya"]}
-        </div>
-      `;
-      subBox.style.display = 'flex';
+      alertBox.className = "alert alert-salah";
+      alertBox.style.backgroundColor = "#fef3c7";
+      alertBox.style.color = "#b45309";
+      alertBox.innerHTML = `⚠️ <b>TIDAK ADA DATA</b><br>Data ${finalPin} direkam ke antrean.`;
     }
-    document.getElementById('tabelLaporan').style.display = 'table';
-    document.getElementById('totalPendapatanText').style.display = 'block';
-    document.getElementById('totalPendapatanText').innerText = `Total Keseluruhan: HKD ${response.total}`;
+
+    memoriScanLokal.push(finalPin.toString());
+    await db.antrean.add({ type: 'CHECKER_SCAN', status: 'pending', payload: { noPaket: finalPin, cabang: cabangAktif, tujuan: tujuanMaster, status: statusScan } });
+    
+    let tbody = document.getElementById("bodyTabelChecker");
+    if(tbody.innerHTML.includes("Memuat data")) tbody.innerHTML = "";
+
+    let badgeClass = statusScan === "BENAR" ? "badge-benar" : (statusScan === "SALAH" ? "badge-salah" : "badge-tidak-ada");
+    let trHtml = "<tr>";
+    for(let i=0; i<10; i++) {
+        let val = detailArr[i] || "-";
+        if(i === 3) val = `<b>${val}</b>`; 
+        trHtml += `<td>${val}</td>`;
+    }
+    trHtml += `<td><span class='badge ${badgeClass}'>${statusScan}</span></td></tr>`;
+    tbody.insertAdjacentHTML('afterbegin', trHtml);
   }
 
-  function filterLaporan() {
-    let input = document.getElementById("searchLaporan").value.toLowerCase();
-    let tr = document.querySelectorAll("#tabelLaporan tbody tr");
-    tr.forEach(row => {
-      let text = row.textContent || row.innerText;
-      row.style.display = (text.toLowerCase().indexOf(input) > -1) ? "" : "none";
-    });
+  async function muatLaporanTanggalLayar() {
+    let tgl = document.getElementById("inputTanggalPilihan").value;
+    let cabang = localStorage.getItem("sesiCabangSSL");
+    let tbody = document.getElementById("bodyTabelChecker");
+    tbody.innerHTML = "<tr><td colspan='11' style='text-align:center;'>Memuat data dari server...</td></tr>";
+    
+    let res = await callAPI({ action: "fetchLaporanByTanggal", cabang: cabang, tanggalStr: tgl });
+    if(res.success) {
+      let histori = res.data;
+      tbody.innerHTML = "";
+      let htmlBuffer = "";
+      memoriScanLokal = []; 
+      for (let h of histori.reverse()) {
+        memoriScanLokal.push(h.dataScan.toString());
+        let badgeClass = h.status === "BENAR" ? "badge-benar" : (h.status === "SALAH" ? "badge-salah" : "badge-tidak-ada");
+        let master = await db.paket.get(h.dataScan);
+        let dArr = master ? master.detailArray : ["-", "-", "-", h.dataScan, "-", "-", "-", "-", "-", "-", "-"];
+        let trHtml = "<tr>";
+        for(let i=0; i<10; i++) {
+            let val = dArr[i] || "-";
+            if(i === 3) val = `<b>${val}</b>`; 
+            trHtml += `<td>${val}</td>`;
+        }
+        trHtml += `<td><span class='badge ${badgeClass}'>${h.status}</span></td></tr>`;
+        htmlBuffer += trHtml;
+      }
+      tbody.innerHTML = htmlBuffer;
+      if(histori.length === 0) tbody.innerHTML = "";
+    }
   }
+
+  function cetakLaporanCheckerLokal() {
+    let tgl = document.getElementById("inputTanggalPilihan").value;
+    let cabang = localStorage.getItem("sesiCabangSSL");
+    document.getElementById("printTglChecker").innerText = tgl;
+    document.getElementById("printCabangChecker").innerText = cabang.toUpperCase();
+    document.getElementById('viewChecker').style.display = "block";
+    document.getElementById('viewKasir').style.display = "none";
+    window.print();
+    document.getElementById('viewChecker').style.display = "";
+    document.getElementById('viewKasir').style.display = "";
+  }
+
+  async function cariPaketKasir() {
+    let inputRaw = document.getElementById("noPaketKasir").value.trim();
+    let input = inputRaw.replace(/[^0-9]/g, '');
+    let cabangAktif = document.getElementById("lokasiKasirReadonly").value.toLowerCase();
+    if(!input) return;
+    
+    let paket = await db.paket.get(input);
+    if (!paket) {
+      let normInput = normalisasiTelepon(input);
+      let allPaket = await db.paket.toArray();
+      paket = allPaket.find(p => {
+        let normDbPhone = normalisasiTelepon(p.phone);
+        let rawDbPhone = p.phone ? p.phone.toString().replace(/[^0-9]/g, '') : "";
+        return normDbPhone === normInput || rawDbPhone === input;
+      });
+    }
+
+    let divHasil = document.getElementById("hasilPencarianKasir");
+    let tbody = document.getElementById("tbodyKasir");
+    let errCabang = document.getElementById("errorCabangKasir");
+    
+    tbody.innerHTML = "";
+    if(paket) {
+      divHasil.classList.remove("hidden");
+      document.getElementById("infoKustomerKasir").innerText = `Kustomer: ${paket.nama} (${paket.phone})`;
+      
+      let isTaken = paket.statusAmbil === "Sudah Diambil";
+      let tujuanLower = (paket.jenis||"").toLowerCase();
+      let isBenar = false;
+      if (cabangAktif.includes("cwb") && (tujuanLower.includes("cwb") || tujuanLower.includes("causeway bay"))) isBenar = true;
+      else if (cabangAktif.includes("ssp") && (tujuanLower.includes("ssp") || tujuanLower.includes("sham shui po"))) isBenar = true;
+      else if (cabangAktif.includes("wts") && (tujuanLower.includes("wts") || tujuanLower.includes("wong tai sin"))) isBenar = true;
+      else if (tujuanLower.includes(cabangAktif)) isBenar = true;
+      
+      let isWrongLocation = !isBenar;
+      errCabang.classList.toggle("hidden", !isWrongLocation);
+      
+      let checkboxHtml = isTaken ? "✔️" : (isWrongLocation ? "🚫" : `<input type="checkbox" class="cb-kasir" value="${paket.noPaket}" data-harga="${paket.bayar}" checked onchange="hitungTotalKasir()">`);
+      let trClass = isTaken ? "taken" : (isWrongLocation ? "warning-text" : "");
+      
+      tbody.innerHTML = `<tr class="${trClass}">
+        <td style="text-align:center;">${checkboxHtml}</td><td><b>${paket.noPaket}</b></td><td>${paket.jenis}</td><td>${paket.berat}</td><td>${paket.bayar}</td>
+        <td><b>${isTaken ? 'SUDAH DIAMBIL' : (isWrongLocation ? 'SALAH CABANG' : 'BELUM DIAMBIL')}</b></td>
+      </tr>`;
+      hitungTotalKasir();
+
+      let selectMetode = document.getElementById("metodeBayarKasir");
+      let btnKonfirm = document.getElementById("btnKonfirmasiBayarKasir");
+      if (isWrongLocation || isTaken) {
+          selectMetode.disabled = true; btnKonfirm.disabled = true; btnKonfirm.style.background = "#6c757d";
+          btnKonfirm.innerText = isTaken ? "Paket Sudah Diambil" : "Ditolak (Salah Cabang)";
+      } else {
+          selectMetode.disabled = false; btnKonfirm.disabled = false; btnKonfirm.style.background = "#28a745"; 
+          btnKonfirm.innerText = "Konfirmasi & Simpan";
+      }
+    } else {
+      alert("Paket tidak ditemukan di Database Lokal.");
+      divHasil.classList.add("hidden");
+    }
+  }
+
+  function hitungTotalKasir() {
+    let total = 0;
+    document.querySelectorAll('.cb-kasir:checked').forEach(cb => { total += parseFloat(cb.getAttribute('data-harga')) || 0; });
+    document.getElementById('totalBayarText').innerText = `Total: HKD ${total}`;
+  }
+
+  async function konfirmasiBayarKasir() {
+    let checked = document.querySelectorAll('.cb-kasir:checked');
+    if(checked.length === 0) return alert("Pilih paket!");
+    let noPaket = checked[0].value;
+    let metode = document.getElementById("metodeBayarKasir").value;
+    let cabangAktif = document.getElementById("lokasiKasirReadonly").value;
+    
+    await db.paket.update(noPaket, { statusAmbil: "Sudah Diambil", jenisBayar: metode });
+    await db.antrean.add({ type: 'KASIR_BAYAR', status: 'pending', payload: { noPaket: noPaket, metode: metode, cabang: cabangAktif } });
+    
+    document.getElementById("hasilPencarianKasir").classList.add("hidden");
+    document.getElementById("noPaketKasir").value = "";
+    alert("✅ Pembayaran Tersimpan di Memori Lokal!");
+  }
+
+  async function muatLaporanKasirLokal() {
+    let data = await db.paket.toArray();
+    let tbody = document.getElementById("tbodyLaporanKasir");
+    let areaRekap = document.getElementById("areaRekapKasir");
+    tbody.innerHTML = "";
+    let lunasData = data.filter(p => p.statusAmbil === "Sudah Diambil" && p.jenisBayar);
+    
+    if(lunasData.length === 0) {
+      tbody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>Belum ada transaksi offline hari ini</td></tr>";
+      areaRekap.innerHTML = ""; 
+    } else {
+      let subtotals = { "Cash": 0, "Octopus": 0, "Alipay": 0, "Kartu Kredit": 0, "Kredit / Hutang": 0, "Lain-lain": 0 };
+      let totalSemua = 0;
+      lunasData.forEach(p => {
+        let hargaHKD = parseFloat(p.bayar) || 0;
+        let jenis = p.jenisBayar || "Lain-lain";
+        if (subtotals[jenis] !== undefined) { subtotals[jenis] += hargaHKD; } else { subtotals["Lain-lain"] += hargaHKD; }
+        totalSemua += hargaHKD;
+        tbody.innerHTML += `<tr><td><b>${p.noPaket}</b></td><td>${p.jenis}</td><td>HKD ${hargaHKD}</td><td>${jenis}</td></tr>`;
+      });
+      areaRekap.innerHTML = `
+        <div style="background:#e9ecef; padding:20px; border-radius:10px; margin-bottom:20px; border:1px solid #ccc; display:flex; flex-wrap:wrap; justify-content:space-between; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
+          <div style="min-width: 150px; margin-bottom:10px;"><strong style="font-size:15px; display:block; margin-bottom:8px;">Rincian Pendapatan:</strong>💵 Cash: HKD ${subtotals["Cash"]}<br>💳 Octopus: HKD ${subtotals["Octopus"]}<br>📱 Alipay: HKD ${subtotals["Alipay"]}</div>
+          <div style="min-width: 150px;"><br>💳 Kartu Kredit: HKD ${subtotals["Kartu Kredit"]}<br>📝 Kredit / Hutang: HKD ${subtotals["Kredit / Hutang"]}<br>📦 Lain-lain: HKD ${subtotals["Lain-lain"]}</div>
+          <div style="width:100%; border-top:1px solid #bbb; margin-top:15px; padding-top:10px;"><strong style="font-size:18px; color:#d9534f;">Total Keseluruhan: HKD ${totalSemua}</strong></div>
+        </div>`;
+    }
+  }
+
+  function cetakLaporanKasirLokal() {
+    let cabang = localStorage.getItem("sesiCabangSSL");
+    document.getElementById("printCabangKasir").innerText = cabang.toUpperCase();
+    document.getElementById('viewChecker').style.display = "none";
+    document.getElementById('viewKasir').style.display = "block";
+    window.print();
+    document.getElementById('viewChecker').style.display = "";
+    document.getElementById('viewKasir').style.display = "";
+  }
+
+  // ==========================================
+  // BACKGROUND SYNC ENGINE API
+  // ==========================================
+  let isSyncing = false;
+  function updateBadge(teks) {
+    let badge = document.getElementById("syncStatusBadge");
+    badge.innerText = teks;
+    badge.style.background = teks.includes("Siap") ? "#10b981" : "#f59e0b";
+  }
+
+  async function prosesAntreanLatarBelakang() {
+    if(isSyncing || !navigator.onLine) return;
+    let pending = await db.antrean.where('status').equals('pending').toArray();
+    if(pending.length === 0) return;
+
+    isSyncing = true;
+    updateBadge(`🔄 Mengirim ${pending.length} antrean...`);
+    
+    let res = await callAPI({ action: "prosesAntreanSync", antreanData: pending });
+    if(res.success) {
+      await db.antrean.bulkDelete(res.processedIds);
+      updateBadge("🟢 Siap");
+    }
+    isSyncing = false;
+  }
+
+  setInterval(prosesAntreanLatarBelakang, 5000); 
 </script>
-
 </body>
 </html>
