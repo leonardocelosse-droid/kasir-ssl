@@ -444,14 +444,13 @@
     qrScanner = new Html5Qrcode(divId);
     isScanning = true;
 
-    qrScanner.start(
+   qrScanner.start(
       { 
-        facingMode: "environment",
-        advanced: [{ focusMode: "continuous" }] 
+        facingMode: "environment" 
+        // Baris "advanced: focusMode" DIHAPUS agar kamera tidak error/bentrok
       },
       { 
         fps: 20, 
-        // qrbox diperbesar agar area deteksi sensor lebih luas menangkap barcode
         qrbox: { width: 280, height: 220 } 
       },
       (decodedText) => {
