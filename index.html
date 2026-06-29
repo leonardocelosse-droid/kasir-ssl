@@ -68,7 +68,7 @@
 
     #syncStatusBadge { position: fixed; bottom: 10px; right: 10px; background: #f59e0b; color: white; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
 
-   /* CSS SCANNER INLINE (Diperbesar menjadi ~35% Layar) */
+    /* CSS SCANNER INLINE (Diperbesar menjadi ~35% Layar) */
     .scanner-container { width: 100%; height: 35vh; min-height: 250px; max-height: 350px; border-radius: 12px; overflow: hidden; background: #000; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; position: relative; border: 3px solid #8b5cf6; }
     .scanner-container video { object-fit: cover !important; width: 100% !important; height: 100% !important; }
     
@@ -240,7 +240,7 @@
   // ==========================================
   // CONFIG API WEB APP (UBAH LINK DI BAWAH INI)
   // ==========================================
-  const API_URL = "https://script.google.com/macros/s/AKfycbz-AwSOMLoRsup4aFM2GjggagSbTcqnclnwe-504SXqKG5RMMfA4e_PMEeOEHHtjeAERA/exec";
+  const API_URL = "URL_WEB_APP_ANDA_DISINI";
 
   // ==========================================
   // 1. INISIALISASI INDEXED-DB & VARIABEL GLOBAL
@@ -254,12 +254,45 @@
   let isScanning = false;
   let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-  // FUNGSI KOMUNIKASI API (PENGGANTI google.script.run)
+  // FUNGSI SUARA BEEP (SUKSES)
+  function playBeep() {
+    try {
+      if(audioCtx.state === 'suspended') audioCtx.resume();
+      let osc = audioCtx.createOscillator();
+      let gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.15);
+    } catch(e) {}
+  }
+
+  // FUNGSI SUARA TETOT (GAGAL / DUPLIKAT)
+  function playTetot() {
+    try {
+      if(audioCtx.state === 'suspended') audioCtx.resume();
+      let osc = audioCtx.createOscillator();
+      let gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'square'; 
+      osc.frequency.setValueAtTime(400, audioCtx.currentTime); 
+      osc.frequency.setValueAtTime(250, audioCtx.currentTime + 0.15); 
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.3);
+    } catch(e) {}
+  }
+
+  // FUNGSI KOMUNIKASI API
   async function callAPI(payload) {
     try {
       const response = await fetch(API_URL, {
         method: 'POST',
-        redirect: 'follow', // Penting untuk melewati redirect Google
+        redirect: 'follow', 
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(payload)
       });
@@ -296,7 +329,6 @@
     btn.innerText = "Memeriksa...";
     document.getElementById("loginPesan").innerText = "";
     
-    // Ganti google.script.run dengan callAPI
     let res = await callAPI({ action: "cekLogin", cabang: cabang, password: pass });
     
     if (res.success && res.data === true) {
@@ -329,7 +361,7 @@
   }
 
   function switchMainTab(tab) {
-    stopScannerIfExists(); // Matikan kamera jika pindah tab
+    stopScannerIfExists(); 
     document.getElementById('viewChecker').classList.add('hidden');
     document.getElementById('viewKasir').classList.add('hidden');
     document.getElementById('viewSync').classList.add('hidden');
@@ -390,21 +422,6 @@
   // ==========================================
   // 4. LOGIKA SCANNER INLINE (HTML5-QRCODE)
   // ==========================================
-  function playBeep() {
-    try {
-      if(audioCtx.state === 'suspended') audioCtx.resume();
-      let osc = audioCtx.createOscillator();
-      let gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.15);
-    } catch(e) {}
-  }
-
   async function stopScannerIfExists() {
     if (isScanning && qrScanner) {
       await qrScanner.stop();
@@ -430,13 +447,11 @@
     let div = document.getElementById(divId);
     let btn = document.getElementById(btnId);
 
-    // Jika sedang berjalan, hentikan.
     if (isScanning && qrScanner) {
       await stopScannerIfExists();
       return;
     }
 
-    // Memulai scanner
     div.classList.remove('hidden');
     btn.innerHTML = "🛑 Tutup Kamera";
     btn.className = "btn-danger-large";
@@ -444,31 +459,23 @@
     qrScanner = new Html5Qrcode(divId);
     isScanning = true;
 
-   qrScanner.start(
-      { 
-        facingMode: "environment" 
-        // Baris "advanced: focusMode" DIHAPUS agar kamera tidak error/bentrok
-      },
-      { 
-        fps: 20, 
-        qrbox: { width: 280, height: 220 } 
-      },
+    qrScanner.start(
+      { facingMode: "environment" },
+      { fps: 20, qrbox: { width: 280, height: 220 } },
       (decodedText) => {
         let angka = decodedText.replace(/[^0-9]/g, '');
         if(angka) {
-          playBeep();
           if(type === 'CHECKER') {
             document.getElementById('inputScanChecker').value = angka;
             submitScanChecker();
           } else {
             document.getElementById('noPaketKasir').value = angka;
             cariPaketKasir();
-            // Matikan otomatis setelah scan kasir karena cuma scan 1 paket
             stopScannerIfExists();
           }
         }
       },
-      (error) => {} // abaikan error frame scanner
+      (error) => {} 
     ).catch(err => {
       alert("⚠️ Izin Kamera ditolak atau tidak tersedia!");
       stopScannerIfExists();
@@ -476,15 +483,12 @@
   }
 
   // ==========================================
-  // 5. SISA FUNGSI CHECKER & KASIR (TIDAK BERUBAH SECARA LOGIKA)
+  // 5. LOGIKA CHECKER & KASIR (INBOUND / OUTBOUND)
   // ==========================================
   async function submitScanChecker() {
     let inputRaw = document.getElementById("inputScanChecker").value.trim();
     let input = inputRaw.replace(/[^0-9]/g, '');
     if(!input) return;
-    
-    playBeep(); // <--- TAMBAHKAN KODE INI DI SINI
-    
     document.getElementById("inputScanChecker").value = "";
     
     let cabangAktif = localStorage.getItem("sesiCabangSSL");
@@ -505,6 +509,7 @@
     let finalPin = paket ? paket.noPaket : input;
 
     if (memoriScanLokal.includes(finalPin.toString())) {
+      playTetot();
       alertBox.className = "alert alert-salah";
       alertBox.style.backgroundColor = "#fee2e2";
       alertBox.style.color = "#991b1b";
@@ -515,6 +520,7 @@
     let tujuanMaster = "Tidak Ditemukan";
     let statusScan = "TIDAK ADA DATA";
     let detailArr = ["-", "-", "-", finalPin, "-", "-", "-", "-", "-", "-", "-"];
+    
     if(paket) {
       tujuanMaster = paket.jenis || "-";
       detailArr = paket.detailArray || detailArr;
@@ -528,14 +534,17 @@
       
       if (isBenar) {
         statusScan = "BENAR";
+        playBeep();
         alertBox.className = "alert alert-benar";
         alertBox.innerHTML = `✅ <b>BENAR</b> - Paket ${finalPin} Sesuai Cabang.`;
       } else {
         statusScan = "SALAH";
+        playTetot();
         alertBox.className = "alert alert-salah";
         alertBox.innerHTML = `❌ <b>SALAH CABANG</b><br>Paket: ${finalPin}<br>Seharusnya ke: ${tujuanMaster}`;
       }
     } else {
+      playTetot();
       alertBox.className = "alert alert-salah";
       alertBox.style.backgroundColor = "#fef3c7";
       alertBox.style.color = "#b45309";
@@ -607,8 +616,6 @@
     let input = inputRaw.replace(/[^0-9]/g, '');
     let cabangAktif = document.getElementById("lokasiKasirReadonly").value.toLowerCase();
     if(!input) return;
-
-    playBeep(); // <--- TAMBAHKAN KODE INI DI SINI
     
     let paket = await db.paket.get(input);
     if (!paket) {
@@ -639,6 +646,13 @@
       else if (tujuanLower.includes(cabangAktif)) isBenar = true;
       
       let isWrongLocation = !isBenar;
+
+      if (isTaken || isWrongLocation) {
+        playTetot();
+      } else {
+        playBeep(); 
+      }
+
       errCabang.classList.toggle("hidden", !isWrongLocation);
       
       let checkboxHtml = isTaken ? "✔️" : (isWrongLocation ? "🚫" : `<input type="checkbox" class="cb-kasir" value="${paket.noPaket}" data-harga="${paket.bayar}" checked onchange="hitungTotalKasir()">`);
@@ -660,6 +674,7 @@
           btnKonfirm.innerText = "Konfirmasi & Simpan";
       }
     } else {
+      playTetot();
       alert("Paket tidak ditemukan di Database Lokal.");
       divHasil.classList.add("hidden");
     }
