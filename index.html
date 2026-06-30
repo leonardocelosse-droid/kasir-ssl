@@ -240,7 +240,7 @@
   // ==========================================
   // CONFIG API WEB APP (UBAH LINK DI BAWAH INI)
   // ==========================================
-  const API_URL = "https://script.google.com/macros/s/AKfycbz-AwSOMLoRsup4aFM2GjggagSbTcqnclnwe-504SXqKG5RMMfA4e_PMEeOEHHtjeAERA/exec";
+  const API_URL = "https://script.google.com/macros/s/AKfycbzqkbuqd-sSSMLn6j9-w8blxmMjoytRA5wtGBHzlGuXmwBbLAmAfRFUwczrshGJkg8iVw/exec";
 
   // ==========================================
   // 1. INISIALISASI INDEXED-DB & VARIABEL GLOBAL
@@ -249,10 +249,11 @@
   db.version(1).stores({ paket: 'noPaket, phone, nama, jenis, statusAmbil, berat, bayar', antrean: '++id, type, status' });
   let memoriScanLokal = [];
   
-  // Variabel Global Scanner
+  // Variabel Global Scanner & Suara
   let qrScanner = null;
   let isScanning = false;
   let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  let isCooldown = false; // Penjaga jeda 3 detik
 
   // FUNGSI SUARA BEEP (SUKSES)
   function playBeep() {
@@ -420,7 +421,7 @@
   }
 
   // ==========================================
-  // 4. LOGIKA SCANNER INLINE (HTML5-QRCODE)
+  // 4. LOGIKA SCANNER INLINE DENGAN JEDA COOLDOWN
   // ==========================================
   async function stopScannerIfExists() {
     if (isScanning && qrScanner) {
@@ -428,6 +429,7 @@
       qrScanner.clear();
       isScanning = false;
       qrScanner = null;
+      isCooldown = false;
       
       document.getElementById('reader-checker').classList.add('hidden');
       let btnC = document.getElementById('btn-scan-checker');
@@ -458,21 +460,32 @@
 
     qrScanner = new Html5Qrcode(divId);
     isScanning = true;
+    isCooldown = false; // Reset jeda
 
     qrScanner.start(
       { facingMode: "environment" },
       { fps: 20, qrbox: { width: 280, height: 220 } },
       (decodedText) => {
+        // JIKA DALAM MASA JEDA 3 DETIK, ABAIKAN SCAN
+        if (isCooldown) return;
+
         let angka = decodedText.replace(/[^0-9]/g, '');
         if(angka) {
+          isCooldown = true; // AKTIFKAN JEDA
+
           if(type === 'CHECKER') {
             document.getElementById('inputScanChecker').value = angka;
             submitScanChecker();
           } else {
             document.getElementById('noPaketKasir').value = angka;
             cariPaketKasir();
-            stopScannerIfExists();
+            stopScannerIfExists(); // Matikan kamera jika di mode Kasir
           }
+
+          // LEPASKAN JEDA SETELAH 3 DETIK (3000 ms)
+          setTimeout(() => {
+            isCooldown = false;
+          }, 3000);
         }
       },
       (error) => {} 
@@ -482,7 +495,7 @@
     });
   }
 
-// ==========================================
+  // ==========================================
   // 5. LOGIKA CHECKER & KASIR (INBOUND / OUTBOUND)
   // ==========================================
   async function submitScanChecker() {
@@ -518,14 +531,14 @@
       return;
     }
 
-    // KONDISI 2: CEK STATUS SUDAH DIAMBIL DI MASTER (BLOKIR INPUT)
+    // KONDISI 2: CEK STATUS SUDAH DIAMBIL DI MASTER
     if (paket && paket.statusAmbil === "Sudah Diambil") {
       playTetot();
       alertBox.className = "alert alert-salah";
       alertBox.style.backgroundColor = "#fee2e2";
       alertBox.style.color = "#991b1b";
       alertBox.innerHTML = `🛑 <b>INVALID (SUDAH DIAMBIL)</b><br>Paket <b>${finalPin}</b> sudah tercatat diserahkan ke kustomer di Master Data. Fisik paket seharusnya tidak ada!`;
-      return; // Menghentikan proses agar tidak masuk tabel dan antrean server
+      return;
     }
 
     let tujuanMaster = "Tidak Ditemukan";
@@ -578,6 +591,7 @@
     trHtml += `<td><span class='badge ${badgeClass}'>${statusScan}</span></td></tr>`;
     tbody.insertAdjacentHTML('afterbegin', trHtml);
   }
+
   async function muatLaporanTanggalLayar() {
     let tgl = document.getElementById("inputTanggalPilihan").value;
     let cabang = localStorage.getItem("sesiCabangSSL");
