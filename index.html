@@ -38,7 +38,8 @@
 
     /* MENU NAVIGASI UTAMA */
     .nav-tabs { display: flex; margin-bottom: 15px; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #e5e7eb; }
-    .nav-tabs button { border-radius: 0; box-shadow: none; background: transparent; color: #6b7280; font-weight: 600; padding: 12px; }
+    /* Penambahan flex:1 agar 4 menu terbagi rata di layar */
+    .nav-tabs button { flex: 1; border-radius: 0; box-shadow: none; background: transparent; color: #6b7280; font-weight: 600; padding: 12px 6px; font-size: 13px; text-align: center; }
     .nav-tabs button.active { background: #e0e7ff; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; }
 
     /* KASIR UI CSS */
@@ -68,7 +69,7 @@
 
     #syncStatusBadge { position: fixed; bottom: 10px; right: 10px; background: #f59e0b; color: white; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
 
-    /* CSS SCANNER INLINE (Diperbesar menjadi ~35% Layar) */
+    /* CSS SCANNER INLINE */
     .scanner-container { width: 100%; height: 35vh; min-height: 250px; max-height: 350px; border-radius: 12px; overflow: hidden; background: #000; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; position: relative; border: 3px solid #8b5cf6; }
     .scanner-container video { object-fit: cover !important; width: 100% !important; height: 100% !important; }
     
@@ -127,7 +128,7 @@
         <button id="navChecker" class="active" onclick="switchMainTab('checker')">📦 Checker</button>
         <button id="navKasir" onclick="switchMainTab('kasir')">💰 Kasir</button>
         <button id="navLaporan" onclick="switchMainTab('laporan')">📄 Laporan</button>
-        <button id="navSync" onclick="switchMainTab('sync')" style="flex:0.5;">⚙️ Sync</button>
+        <button id="navSync" onclick="switchMainTab('sync')">⚙️ Sync</button>
       </div>
 
       <div id="viewChecker">
@@ -405,7 +406,7 @@
     } else if(tab === 'laporan') {
       document.getElementById('viewLaporan').classList.remove('hidden');
       document.getElementById('navLaporan').classList.add('active');
-      muatLaporanKasirLokal(); // Pastikan rekap kasir terbaru dimuat sebelum print
+      muatLaporanKasirLokal();
     } else {
       document.getElementById('viewSync').classList.remove('hidden');
       document.getElementById('navSync').classList.add('active');
@@ -651,7 +652,6 @@
     }
   }
 
-  // LOGIKA PRINT CHECKER BERDASARKAN KELAS CSS BODY
   function cetakLaporanCheckerLokal() {
     let tgl = document.getElementById("inputTanggalPilihan").value;
     let cabang = localStorage.getItem("sesiCabangSSL");
@@ -782,7 +782,6 @@
     }
   }
 
-  // LOGIKA PRINT KASIR BERDASARKAN KELAS CSS BODY
   function cetakLaporanKasirLokal() {
     let cabang = localStorage.getItem("sesiCabangSSL");
     document.getElementById("printCabangKasir").innerText = cabang.toUpperCase();
