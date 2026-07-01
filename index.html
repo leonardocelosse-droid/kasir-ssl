@@ -38,12 +38,12 @@
 
     /* MENU NAVIGASI UTAMA */
     .nav-tabs { display: flex; margin-bottom: 15px; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #e5e7eb; }
-    .nav-tabs button { flex: 1; border-radius: 0; box-shadow: none; background: transparent; color: #6b7280; font-weight: 600; padding: 10px 5px; font-size: 13px; }
+    .nav-tabs button { border-radius: 0; box-shadow: none; background: transparent; color: #6b7280; font-weight: 600; padding: 12px; }
     .nav-tabs button.active { background: #e0e7ff; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; }
 
-    /* KASIR & LAPORAN UI CSS */
+    /* KASIR UI CSS */
     .kasir-subtab { display: flex; margin-bottom: 15px; }
-    .kasir-subtab button { flex: 1; padding: 12px; border-radius:0; box-shadow:none; background: #e5e7eb; color: #374151; font-weight: bold; font-size: 13px; }
+    .kasir-subtab button { flex: 1; padding: 12px; border-radius:0; box-shadow:none; background: #e5e7eb; color: #374151; font-weight: bold; }
     .kasir-subtab button.active { background: #007BFF; color: white; }
     .kasir-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top:10px; }
     .kasir-table th, .kasir-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
@@ -51,7 +51,7 @@
     .warning-text { color: #dc2626; font-weight: bold; background-color: #fee2e2; }
     .taken { color: #888; text-decoration: line-through; background-color: #f9f9f9; }
 
-    /* CHECKER TABLE CSS */
+    /* CHECKER TABLE CSS (11 Kolom) */
     .table-container { overflow-x: auto; margin-top: 10px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; }
     .checker-table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 900px; }
     .checker-table td, .checker-table th { padding: 10px 12px; text-align: left; border-bottom: 1px solid #f3f4f6; }
@@ -68,16 +68,16 @@
 
     #syncStatusBadge { position: fixed; bottom: 10px; right: 10px; background: #f59e0b; color: white; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
 
-    /* CSS SCANNER INLINE */
+    /* CSS SCANNER INLINE (Diperbesar menjadi ~35% Layar) */
     .scanner-container { width: 100%; height: 35vh; min-height: 250px; max-height: 350px; border-radius: 12px; overflow: hidden; background: #000; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; position: relative; border: 3px solid #8b5cf6; }
     .scanner-container video { object-fit: cover !important; width: 100% !important; height: 100% !important; }
     
     @media print {
       @page { size: landscape; margin: 1cm; }
       body { background-color: white; margin: 0; padding: 0; color: black; }
-      .app-bar, .nav-tabs, .btn-primary, .btn-secondary, .btn-camera, .btn-danger, .btn-danger-large, input, select, label, #syncStatusBadge, .kasir-subtab, #kasirAmbilArea, #statusAlertChecker, .card-title, .scanner-container, #loginArea, .print-hidden { display: none !important; }
-      #viewChecker, #viewKasir, #viewSync { display: none !important; }
-      #viewLaporan { display: block !important; }
+      .app-bar, .nav-tabs, .btn-primary, .btn-secondary, .btn-camera, .btn-danger, .btn-danger-large, input, select, label, #syncStatusBadge, .kasir-subtab, #kasirAmbilArea, #statusAlertChecker, .card-title, .scanner-container, #loginArea { display: none !important; }
+      #viewKasir, #viewSync, #kasirLaporanArea { display: none !important; }
+      #viewChecker { display: block !important; }
       .main-container { max-width: 100% !important; width: 100% !important; padding: 0 !important; margin: 0 !important; }
       .card { border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; }
       .table-container { border: none !important; margin-top: 10px !important; overflow: visible !important; width: 100% !important; }
@@ -116,17 +116,15 @@
 
     <div id="mainAppArea" class="hidden">
       
-      <!-- MENU NAVIGASI TERBARU (4 MENU) -->
       <div class="nav-tabs">
         <button id="navChecker" class="active" onclick="switchMainTab('checker')">📦 Checker</button>
         <button id="navKasir" onclick="switchMainTab('kasir')">💰 Kasir</button>
-        <button id="navLaporan" onclick="switchMainTab('laporan')">📊 Laporan</button>
-        <button id="navSync" onclick="switchMainTab('sync')">⚙️ Sync</button>
+        <button id="navSync" onclick="switchMainTab('sync')" style="flex:0.5;">⚙️ Sync</button>
       </div>
 
-      <!-- HALAMAN CHECKER -->
       <div id="viewChecker">
         <div id="statusAlertChecker" class="alert hidden"></div>
+
         <div class="card">
           <div class="card-title">Pintu Masuk Pemrosesan</div>
           
@@ -136,22 +134,46 @@
           <input type="text" inputmode="numeric" pattern="[0-9]*" id="inputScanChecker" placeholder="Arahkan Barcode Scanner / PIN Paket..." onkeypress="if(event.key === 'Enter') submitScanChecker()">
           <button onclick="submitScanChecker()" class="btn-primary">Kirim Data Paket</button>
           
+          <label style="margin-top:18px; border-top:1px solid #eee; padding-top:10px;">PILIH TANGGAL</label>
+          <input type="date" id="inputTanggalPilihan" onchange="muatLaporanTanggalLayar()">
+          <button class="btn-secondary" onclick="cetakLaporanCheckerLokal()">🖨️ Cetak PDF</button>
+          
           <div style="margin-top: 16px; border-top: 1px solid #f3f4f6; padding-top: 14px; display: flex; justify-content: space-between; align-items: center;">
             <span style="font-size: 13px; color: #6b7280; font-weight: 500;">Sesi aktif berjalan</span>
             <button onclick="logout()" class="btn-danger">Keluar</button>
           </div>
         </div>
+
+        <div class="card">
+          <div id="printHeaderChecker" class="print-only">
+            <h2>LAPORAN CHECKER - SSL EXPRESS</h2>
+            <h4>Cabang: <span id="printCabangChecker"></span> | Tanggal: <span id="printTglChecker"></span></h4>
+          </div>
+          <div class="card-title">Histori Paket Terproses</div>
+          <div class="table-container">
+            <table class="checker-table">
+              <thead><tr><th>NAMA</th><th>KODE</th><th>TELP</th><th>PIN</th><th>AGEN</th><th>JENIS</th><th>BERAT</th><th>HARGA</th><th>BAYAR</th><th>CATT</th><th>STATUS</th></tr></thead>
+              <tbody id="bodyTabelChecker"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
-      <!-- HALAMAN KASIR -->
       <div id="viewKasir" class="hidden">
         <div class="card" style="background:#f8f9fa;">
           <h2 style="text-align:center; color:#333; margin-bottom:5px;">Sistem Kasir SSL Express</h2>
+          
           <label>Lokasi Kasir Aktif Saat Ini:</label>
           <input type="text" id="lokasiKasirReadonly" readonly style="background:#e9ecef; font-weight:bold; color:#333;">
 
+          <div class="kasir-subtab">
+            <button id="tabAmbil" class="active" onclick="switchKasirTab('ambil')">Ambil Paket</button>
+            <button id="tabLaporan" onclick="switchKasirTab('laporan')">Laporan Harian</button>
+          </div>
+
           <div id="kasirAmbilArea">
             <label>Input Nomor Paket / PIN:</label>
+            
             <div id="reader-kasir" class="scanner-container hidden"></div>
             <button id="btn-scan-kasir" class="btn-camera" onclick="toggleScanner('KASIR')" style="padding:12px; font-size:14px; margin-bottom:10px;">📷 Scan Barcode / QR</button>
             
@@ -182,43 +204,13 @@
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- HALAMAN LAPORAN (MENU BARU) -->
-      <div id="viewLaporan" class="hidden">
-        <div class="card">
-          <div class="kasir-subtab">
-            <button id="tabLapChecker" class="active" onclick="switchLaporanTab('checker')">Histori Checker</button>
-            <button id="tabLapKasir" onclick="switchLaporanTab('kasir')">Laporan Harian Kasir</button>
-          </div>
-
-          <!-- LAPORAN CHECKER -->
-          <div id="laporanCheckerArea">
-            <label>PILIH TANGGAL</label>
-            <input type="date" id="inputTanggalPilihan" onchange="muatLaporanTanggalLayar()">
-            <button class="btn-secondary print-hidden" onclick="cetakLaporanCheckerLokal()">🖨️ Cetak PDF Checker</button>
-            
-            <div id="printHeaderChecker" class="print-only">
-              <h2>LAPORAN CHECKER - SSL EXPRESS</h2>
-              <h4>Cabang: <span id="printCabangChecker"></span> | Tanggal: <span id="printTglChecker"></span></h4>
-            </div>
-            
-            <div class="table-container print-only-table" style="margin-top: 15px;">
-              <table class="checker-table">
-                <thead><tr><th>NAMA</th><th>KODE</th><th>TELP</th><th>PIN</th><th>AGEN</th><th>JENIS</th><th>BERAT</th><th>HARGA</th><th>BAYAR</th><th>CATT</th><th>STATUS</th></tr></thead>
-                <tbody id="bodyTabelChecker"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- LAPORAN KASIR -->
-          <div id="laporanKasirArea" class="hidden">
-            <button class="btn-secondary print-hidden" style="margin-bottom:15px; background-color:#17a2b8;" onclick="cetakLaporanKasirLokal()">🖨️ Cetak PDF Kasir</button>
+          <div id="kasirLaporanArea" class="hidden">
             <div id="printHeaderKasir" class="print-only">
               <h2>LAPORAN PENDAPATAN HARIAN</h2>
               <h4>Cabang: <span id="printCabangKasir"></span></h4>
             </div>
+            <button class="btn-secondary" style="margin-bottom:15px; background-color:#17a2b8;" onclick="cetakLaporanKasirLokal()">🖨️ Cetak PDF Kasir</button>
             <div id="areaRekapKasir"></div>
             <div style="overflow-x:auto;">
               <table class="kasir-table">
@@ -230,7 +222,6 @@
         </div>
       </div>
 
-      <!-- HALAMAN SYNC -->
       <div id="viewSync" class="hidden">
         <div class="card">
           <div class="card-title">Persiapan Operasional Pagi</div>
@@ -247,22 +238,24 @@
 
 <script>
   // ==========================================
-  // URL TETAP MENGGUNAKAN VERSI LAMA YANG AMAN
+  // CONFIG API WEB APP (UBAH LINK DI BAWAH INI)
   // ==========================================
   const API_URL = "https://script.google.com/macros/s/AKfycbw9LphA8eykASRFnCrwx10UIswSYInuFuy6VID9RNgLxHaciSdc7L5Moz4Ig3pr5M8r8w/exec";
 
   // ==========================================
-  // 1. DATABASE LOKAL (TIDAK ADA PERUBAHAN VERSI)
+  // 1. INISIALISASI INDEXED-DB & VARIABEL GLOBAL
   // ==========================================
   const db = new Dexie("SSLExpressDB");
   db.version(1).stores({ paket: 'noPaket, phone, nama, jenis, statusAmbil, berat, bayar', antrean: '++id, type, status' });
   let memoriScanLokal = [];
   
+  // Variabel Global Scanner & Suara
   let qrScanner = null;
   let isScanning = false;
   let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  let isCooldown = false; 
+  let isCooldown = false; // Penjaga jeda 3 detik
 
+  // FUNGSI SUARA BEEP (SUKSES)
   function playBeep() {
     try {
       if(audioCtx.state === 'suspended') audioCtx.resume();
@@ -278,6 +271,7 @@
     } catch(e) {}
   }
 
+  // FUNGSI SUARA TETOT (GAGAL / DUPLIKAT)
   function playTetot() {
     try {
       if(audioCtx.state === 'suspended') audioCtx.resume();
@@ -294,12 +288,13 @@
     } catch(e) {}
   }
 
+  // FUNGSI KOMUNIKASI API
   async function callAPI(payload) {
     try {
       const response = await fetch(API_URL, {
         method: 'POST',
         redirect: 'follow', 
-        headers: { "Content-Type": "text-plain;charset=utf-8" },
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(payload)
       });
       return await response.json();
@@ -366,17 +361,13 @@
     muatLaporanTanggalLayar();
   }
 
-  // SISTEM TAB UTAMA
   function switchMainTab(tab) {
     stopScannerIfExists(); 
     document.getElementById('viewChecker').classList.add('hidden');
     document.getElementById('viewKasir').classList.add('hidden');
-    document.getElementById('viewLaporan').classList.add('hidden');
     document.getElementById('viewSync').classList.add('hidden');
-    
     document.getElementById('navChecker').classList.remove('active');
     document.getElementById('navKasir').classList.remove('active');
-    document.getElementById('navLaporan').classList.remove('active');
     document.getElementById('navSync').classList.remove('active');
     
     if(tab === 'checker') {
@@ -387,34 +378,23 @@
       document.getElementById('viewKasir').classList.remove('hidden');
       document.getElementById('navKasir').classList.add('active');
       document.getElementById('noPaketKasir').focus();
-    } else if(tab === 'laporan') {
-      document.getElementById('viewLaporan').classList.remove('hidden');
-      document.getElementById('navLaporan').classList.add('active');
-      if(document.getElementById('tabLapChecker').classList.contains('active')) {
-         muatLaporanTanggalLayar();
-      } else {
-         muatLaporanKasirLokal();
-      }
     } else {
       document.getElementById('viewSync').classList.remove('hidden');
       document.getElementById('navSync').classList.add('active');
     }
   }
 
-  // SISTEM TAB LAPORAN KHUSUS
-  function switchLaporanTab(tab) {
-    document.getElementById('laporanCheckerArea').classList.add('hidden');
-    document.getElementById('laporanKasirArea').classList.add('hidden');
-    document.getElementById('tabLapChecker').classList.remove('active');
-    document.getElementById('tabLapKasir').classList.remove('active');
-    
-    if(tab === 'checker') {
-      document.getElementById('laporanCheckerArea').classList.remove('hidden');
-      document.getElementById('tabLapChecker').classList.add('active');
-      muatLaporanTanggalLayar();
+  function switchKasirTab(tab) {
+    document.getElementById('kasirAmbilArea').classList.add('hidden');
+    document.getElementById('kasirLaporanArea').classList.add('hidden');
+    document.getElementById('tabAmbil').classList.remove('active');
+    document.getElementById('tabLaporan').classList.remove('active');
+    if(tab === 'ambil') {
+      document.getElementById('kasirAmbilArea').classList.remove('hidden');
+      document.getElementById('tabAmbil').classList.add('active');
     } else {
-      document.getElementById('laporanKasirArea').classList.remove('hidden');
-      document.getElementById('tabLapKasir').classList.add('active');
+      document.getElementById('kasirLaporanArea').classList.remove('hidden');
+      document.getElementById('tabLaporan').classList.add('active');
       muatLaporanKasirLokal();
     }
   }
@@ -441,7 +421,7 @@
   }
 
   // ==========================================
-  // 4. LOGIKA SCANNER INLINE
+  // 4. LOGIKA SCANNER INLINE DENGAN JEDA COOLDOWN
   // ==========================================
   async function stopScannerIfExists() {
     if (isScanning && qrScanner) {
@@ -480,17 +460,18 @@
 
     qrScanner = new Html5Qrcode(divId);
     isScanning = true;
-    isCooldown = false; 
+    isCooldown = false; // Reset jeda
 
     qrScanner.start(
       { facingMode: "environment" },
       { fps: 20, qrbox: { width: 280, height: 220 } },
       (decodedText) => {
+        // JIKA DALAM MASA JEDA 3 DETIK, ABAIKAN SCAN
         if (isCooldown) return;
 
         let angka = decodedText.replace(/[^0-9]/g, '');
         if(angka) {
-          isCooldown = true; 
+          isCooldown = true; // AKTIFKAN JEDA
 
           if(type === 'CHECKER') {
             document.getElementById('inputScanChecker').value = angka;
@@ -498,9 +479,10 @@
           } else {
             document.getElementById('noPaketKasir').value = angka;
             cariPaketKasir();
-            stopScannerIfExists(); 
+            stopScannerIfExists(); // Matikan kamera jika di mode Kasir
           }
 
+          // LEPASKAN JEDA SETELAH 3 DETIK (3000 ms)
           setTimeout(() => {
             isCooldown = false;
           }, 3000);
@@ -514,7 +496,7 @@
   }
 
   // ==========================================
-  // 5. LOGIKA CHECKER & PENYIMPANAN LOCALSTORAGE
+  // 5. LOGIKA CHECKER & KASIR (INBOUND / OUTBOUND)
   // ==========================================
   async function submitScanChecker() {
     let inputRaw = document.getElementById("inputScanChecker").value.trim();
@@ -539,6 +521,7 @@
 
     let finalPin = paket ? paket.noPaket : input;
 
+    // KONDISI 1: CEK DUPLIKAT HARI INI
     if (memoriScanLokal.includes(finalPin.toString())) {
       playTetot();
       alertBox.className = "alert alert-salah";
@@ -548,6 +531,7 @@
       return;
     }
 
+    // KONDISI 2: CEK STATUS SUDAH DIAMBIL DI MASTER
     if (paket && paket.statusAmbil === "Sudah Diambil") {
       playTetot();
       alertBox.className = "alert alert-salah";
@@ -594,17 +578,9 @@
     memoriScanLokal.push(finalPin.toString());
     await db.antrean.add({ type: 'CHECKER_SCAN', status: 'pending', payload: { noPaket: finalPin, cabang: cabangAktif, tujuan: tujuanMaster, status: statusScan } });
     
-    // SIMPAN KE LOCAL STORAGE AGAR TIDAK HILANG SAAT KELUAR
-    let today = new Date().toISOString().slice(0, 10);
-    let lk = "ssl_histori_" + today;
-    let curHistori = JSON.parse(localStorage.getItem(lk) || "[]");
-    curHistori.unshift({ pin: finalPin.toString(), status: statusScan, detailArray: detailArr });
-    localStorage.setItem(lk, JSON.stringify(curHistori));
-
-    // RENDER KE TABEL JIKA SEDANG BUKA TABEL LAPORAN
     let tbody = document.getElementById("bodyTabelChecker");
-    if(tbody.innerHTML.includes("Memuat") || tbody.innerHTML.includes("Belum")) tbody.innerHTML = "";
-    
+    if(tbody.innerHTML.includes("Memuat data")) tbody.innerHTML = "";
+
     let badgeClass = statusScan === "BENAR" ? "badge-benar" : (statusScan === "SALAH" ? "badge-salah" : "badge-tidak-ada");
     let trHtml = "<tr>";
     for(let i=0; i<10; i++) {
@@ -616,97 +592,49 @@
     tbody.insertAdjacentHTML('afterbegin', trHtml);
   }
 
-  // MEMUAT LAPORAN DARI LOCAL STORAGE (TIDAK HILANG) + SINKRONISASI SERVER
   async function muatLaporanTanggalLayar() {
     let tgl = document.getElementById("inputTanggalPilihan").value;
+    let cabang = localStorage.getItem("sesiCabangSSL");
     let tbody = document.getElementById("bodyTabelChecker");
-    tbody.innerHTML = "<tr><td colspan='11' style='text-align:center;'>Memuat data...</td></tr>";
+    tbody.innerHTML = "<tr><td colspan='11' style='text-align:center;'>Memuat data dari server...</td></tr>";
     
-    // 1. Ambil memori LocalStorage agar langsung tampil
-    let lk = "ssl_histori_" + tgl;
-    let curHistori = JSON.parse(localStorage.getItem(lk) || "[]");
-    
-    memoriScanLokal = []; 
-    let htmlBuffer = "";
-
-    for (let h of curHistori) {
-        memoriScanLokal.push(h.pin);
+    let res = await callAPI({ action: "fetchLaporanByTanggal", cabang: cabang, tanggalStr: tgl });
+    if(res.success) {
+      let histori = res.data;
+      tbody.innerHTML = "";
+      let htmlBuffer = "";
+      memoriScanLokal = []; 
+      for (let h of histori.reverse()) {
+        memoriScanLokal.push(h.dataScan.toString());
         let badgeClass = h.status === "BENAR" ? "badge-benar" : (h.status === "SALAH" ? "badge-salah" : "badge-tidak-ada");
+        let master = await db.paket.get(h.dataScan);
+        let dArr = master ? master.detailArray : ["-", "-", "-", h.dataScan, "-", "-", "-", "-", "-", "-", "-"];
         let trHtml = "<tr>";
         for(let i=0; i<10; i++) {
-            let val = h.detailArray[i] || "-";
+            let val = dArr[i] || "-";
             if(i === 3) val = `<b>${val}</b>`; 
             trHtml += `<td>${val}</td>`;
         }
         trHtml += `<td><span class='badge ${badgeClass}'>${h.status}</span></td></tr>`;
         htmlBuffer += trHtml;
-    }
-    tbody.innerHTML = htmlBuffer || "<tr><td colspan='11' style='text-align:center;'>Belum ada histori offline untuk tanggal ini. Sedang mengecek server...</td></tr>";
-
-    // 2. Sinkron ke server untuk memastikan tidak ada data yang terlewat
-    let cabang = localStorage.getItem("sesiCabangSSL");
-    let res = await callAPI({ action: "fetchLaporanByTanggal", cabang: cabang, tanggalStr: tgl });
-    
-    if(res.success && res.data) {
-      let historiServer = res.data;
-      let updateDibutuhkan = false;
-      
-      for (let h of historiServer) {
-        if(!memoriScanLokal.includes(h.dataScan.toString())) {
-          let master = await db.paket.get(h.dataScan);
-          let dArr = master ? master.detailArray : ["-", "-", "-", h.dataScan, "-", "-", "-", "-", "-", "-", "-"];
-          curHistori.unshift({ pin: h.dataScan.toString(), status: h.status, detailArray: dArr });
-          updateDibutuhkan = true;
-        }
       }
-
-      // Jika ada data baru dari server, simpan dan render ulang
-      if(updateDibutuhkan) {
-          localStorage.setItem(lk, JSON.stringify(curHistori));
-          memoriScanLokal = []; 
-          let newHtmlBuffer = "";
-          for (let h of curHistori) {
-              memoriScanLokal.push(h.pin);
-              let badgeClass = h.status === "BENAR" ? "badge-benar" : (h.status === "SALAH" ? "badge-salah" : "badge-tidak-ada");
-              let trHtml = "<tr>";
-              for(let i=0; i<10; i++) {
-                  let val = h.detailArray[i] || "-";
-                  if(i === 3) val = `<b>${val}</b>`; 
-                  trHtml += `<td>${val}</td>`;
-              }
-              trHtml += `<td><span class='badge ${badgeClass}'>${h.status}</span></td></tr>`;
-              newHtmlBuffer += trHtml;
-          }
-          tbody.innerHTML = newHtmlBuffer;
-      }
+      tbody.innerHTML = htmlBuffer;
+      if(histori.length === 0) tbody.innerHTML = "";
     }
   }
 
-  // FUNGSI CETAK LAPORAN 
   function cetakLaporanCheckerLokal() {
     let tgl = document.getElementById("inputTanggalPilihan").value;
     let cabang = localStorage.getItem("sesiCabangSSL");
     document.getElementById("printTglChecker").innerText = tgl;
     document.getElementById("printCabangChecker").innerText = cabang.toUpperCase();
-    
-    document.getElementById('laporanKasirArea').classList.add('hidden');
-    document.getElementById('laporanCheckerArea').classList.remove('hidden');
-    
-    document.getElementById('viewChecker').style.display = "none";
+    document.getElementById('viewChecker').style.display = "block";
     document.getElementById('viewKasir').style.display = "none";
-    document.getElementById('viewLaporan').style.display = "block";
-    
     window.print();
-    
-    // Kembalikan display
     document.getElementById('viewChecker').style.display = "";
     document.getElementById('viewKasir').style.display = "";
-    document.getElementById('viewLaporan').style.display = "";
   }
 
-  // ==========================================
-  // LOGIKA KASIR
-  // ==========================================
   async function cariPaketKasir() {
     let inputRaw = document.getElementById("noPaketKasir").value.trim();
     let input = inputRaw.replace(/[^0-9]/g, '');
@@ -829,19 +757,11 @@
   function cetakLaporanKasirLokal() {
     let cabang = localStorage.getItem("sesiCabangSSL");
     document.getElementById("printCabangKasir").innerText = cabang.toUpperCase();
-    
-    document.getElementById('laporanCheckerArea').classList.add('hidden');
-    document.getElementById('laporanKasirArea').classList.remove('hidden');
-    
     document.getElementById('viewChecker').style.display = "none";
-    document.getElementById('viewKasir').style.display = "none";
-    document.getElementById('viewLaporan').style.display = "block";
-    
+    document.getElementById('viewKasir').style.display = "block";
     window.print();
-    
     document.getElementById('viewChecker').style.display = "";
     document.getElementById('viewKasir').style.display = "";
-    document.getElementById('viewLaporan').style.display = "";
   }
 
   // ==========================================
