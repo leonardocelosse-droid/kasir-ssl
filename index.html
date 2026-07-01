@@ -302,18 +302,18 @@
   }
 
   // FUNGSI KOMUNIKASI API
-  async function callAPI(payload) {
+ async function callAPI(payload) {
     try {
       const response = await fetch(API_URL, {
         method: 'POST',
         redirect: 'follow', 
-        headers: { "Content-Type": "text-plain;charset=utf-8" },
+        // Baris headers sengaja dihapus agar browser tidak melakukan preflight request
         body: JSON.stringify(payload)
       });
       return await response.json();
     } catch (error) {
       console.error("API Error:", error);
-      return { success: false, message: "Koneksi ke Server Gagal." };
+      return { success: false, message: "Koneksi ke Server Gagal atau Error Jaringan." };
     }
   }
 
