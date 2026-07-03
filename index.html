@@ -338,10 +338,13 @@
   // 2. LOGIKA LOGIN & NAVIGASI
   // ==========================================
   document.addEventListener("DOMContentLoaded", function() {
-    let sesi = localStorage.getItem("sesiCabangSSL");
-    if(sesi) { tampilkanMainApp(sesi); }
+    // 1. SET TANGGAL TERLEBIH DAHULU
     let tzoffset = (new Date()).getTimezoneOffset() * 60000; 
     document.getElementById('inputTanggalPilihan').value = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 10);
+
+    // 2. SETELAH TANGGAL TERISI, BARU MUAT APLIKASI
+    let sesi = localStorage.getItem("sesiCabangSSL");
+    if(sesi) { tampilkanMainApp(sesi); }
   });
 
   async function prosesLogin() {
@@ -625,24 +628,33 @@
     let tgl = document.getElementById("inputTanggalPilihan").value;
     let cabang = localStorage.getItem("sesiCabangSSL");
     let tbody = document.getElementById("bodyTabelChecker");
+    
+    // Cegah error jika tanggal belum ada
+    if (!tgl) return; 
+
     tbody.innerHTML = "<tr><td colspan='11' style='text-align:center;'>Memuat data...</td></tr>";
     
+    let histori = [];
+    let htmlBuffer = "";
+    memoriScanLokal = []; 
+    let processedPins = new Set(); 
+
+    // TAHAP 1: Coba ambil dari server secara pelan (API)
     try {
       let res = await callAPI({ action: "fetchLaporanByTanggal", cabang: cabang, tanggalStr: tgl });
-      // Proteksi jika API gagal merespons array agar layar HP tidak blank
-      let histori = (res.success && Array.isArray(res.data)) ? res.data : [];
-      
-      tbody.innerHTML = "";
-      let htmlBuffer = "";
-      memoriScanLokal = []; 
-      
-      // Menggunakan Set untuk melacak duplikat dengan ketat
-      let processedPins = new Set(); 
-      
-      // 1. Muat dari histori Server
+      if (res && res.success && Array.isArray(res.data)) {
+        histori = res.data;
+      }
+    } catch (error) {
+      console.warn("⚠️ API Timeout / Offline. Melanjutkan memuat data lokal.");
+    }
+
+    // TAHAP 2: Susun tabel dari Server + Lokal
+    try {
+      // A. Muat dari histori Server
       for (let h of histori.reverse()) {
         let pinStr = h.dataScan.toString();
-        if (processedPins.has(pinStr)) continue; // Abaikan jika duplikat
+        if (processedPins.has(pinStr)) continue; 
         
         processedPins.add(pinStr);
         memoriScanLokal.push(pinStr);
@@ -660,12 +672,12 @@
         htmlBuffer += trHtml;
       }
 
-      // 2. Muat dari Antrean Lokal (Data yang belum terkirim/offline) agar tidak hilang saat ke-refresh
+      // B. Muat dari Antrean Lokal (Offline) agar selalu aman jika ter-refresh
       let pendingScans = await db.antrean.where('status').equals('pending').toArray();
       for (let p of pendingScans.reverse()) {
         if (p.type === 'CHECKER_SCAN') {
           let pinStr = p.payload.noPaket.toString();
-          if (processedPins.has(pinStr)) continue; // Abaikan jika duplikat
+          if (processedPins.has(pinStr)) continue; 
           
           processedPins.add(pinStr);
           memoriScanLokal.push(pinStr);
@@ -679,9 +691,10 @@
               if(i === 3) val = `<b>${val}</b>`; 
               trHtml += `<td>${val}</td>`;
           }
-          trHtml += `<td><span class='badge ${badgeClass}'>${p.payload.status} (Menunggu Sync)</span></td></tr>`;
+          // Tambahkan label (Offline/Menunggu) agar Anda tahu ini data belum terkirim
+          trHtml += `<td><span class='badge ${badgeClass}'>${p.payload.status} (Menunggu)</span></td></tr>`;
           
-          // Letakkan data lokal terbaru di posisi paling atas tabel
+          // Letakkan data offline di barisan teratas
           htmlBuffer = trHtml + htmlBuffer; 
         }
       }
@@ -690,7 +703,7 @@
       if(processedPins.size === 0) tbody.innerHTML = "<tr><td colspan='11' style='text-align:center;'>Belum ada histori scan pada tanggal ini.</td></tr>";
     
     } catch (error) {
-      tbody.innerHTML = `<tr><td colspan='11' style='text-align:center; color:red;'>Gagal memuat layar: ${error.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan='11' style='text-align:center; color:red;'>Gagal menyusun tabel: ${error.message}</td></tr>`;
     }
   }
 
