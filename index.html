@@ -625,19 +625,31 @@
     let tgl = document.getElementById("inputTanggalPilihan").value;
     let cabang = localStorage.getItem("sesiCabangSSL");
     let tbody = document.getElementById("bodyTabelChecker");
-    tbody.innerHTML = "<tr><td colspan='11' style='text-align:center;'>Memuat data dari server...</td></tr>";
+    tbody.innerHTML = "<tr><td colspan='11' style='text-align:center;'>Memuat data...</td></tr>";
     
-    let res = await callAPI({ action: "fetchLaporanByTanggal", cabang: cabang, tanggalStr: tgl });
-    if(res.success) {
-      let histori = res.data;
+    try {
+      let res = await callAPI({ action: "fetchLaporanByTanggal", cabang: cabang, tanggalStr: tgl });
+      // Proteksi jika API gagal merespons array agar layar HP tidak blank
+      let histori = (res.success && Array.isArray(res.data)) ? res.data : [];
+      
       tbody.innerHTML = "";
       let htmlBuffer = "";
       memoriScanLokal = []; 
+      
+      // Menggunakan Set untuk melacak duplikat dengan ketat
+      let processedPins = new Set(); 
+      
+      // 1. Muat dari histori Server
       for (let h of histori.reverse()) {
-        memoriScanLokal.push(h.dataScan.toString());
+        let pinStr = h.dataScan.toString();
+        if (processedPins.has(pinStr)) continue; // Abaikan jika duplikat
+        
+        processedPins.add(pinStr);
+        memoriScanLokal.push(pinStr);
+        
         let badgeClass = h.status === "BENAR" ? "badge-benar" : (h.status === "SALAH" ? "badge-salah" : "badge-tidak-ada");
-        let master = await db.paket.get(h.dataScan);
-        let dArr = master ? master.detailArray : ["-", "-", "-", h.dataScan, "-", "-", "-", "-", "-", "-", "-"];
+        let master = await db.paket.get(pinStr);
+        let dArr = master ? master.detailArray : ["-", "-", "-", pinStr, "-", "-", "-", "-", "-", "-", "-"];
         let trHtml = "<tr>";
         for(let i=0; i<10; i++) {
             let val = dArr[i] || "-";
@@ -647,8 +659,38 @@
         trHtml += `<td><span class='badge ${badgeClass}'>${h.status}</span></td></tr>`;
         htmlBuffer += trHtml;
       }
+
+      // 2. Muat dari Antrean Lokal (Data yang belum terkirim/offline) agar tidak hilang saat ke-refresh
+      let pendingScans = await db.antrean.where('status').equals('pending').toArray();
+      for (let p of pendingScans.reverse()) {
+        if (p.type === 'CHECKER_SCAN') {
+          let pinStr = p.payload.noPaket.toString();
+          if (processedPins.has(pinStr)) continue; // Abaikan jika duplikat
+          
+          processedPins.add(pinStr);
+          memoriScanLokal.push(pinStr);
+
+          let badgeClass = p.payload.status === "BENAR" ? "badge-benar" : (p.payload.status === "SALAH" ? "badge-salah" : "badge-tidak-ada");
+          let master = await db.paket.get(pinStr);
+          let dArr = master ? master.detailArray : ["-", "-", "-", pinStr, "-", "-", "-", "-", "-", "-", "-"];
+          let trHtml = "<tr>";
+          for(let i=0; i<10; i++) {
+              let val = dArr[i] || "-";
+              if(i === 3) val = `<b>${val}</b>`; 
+              trHtml += `<td>${val}</td>`;
+          }
+          trHtml += `<td><span class='badge ${badgeClass}'>${p.payload.status} (Menunggu Sync)</span></td></tr>`;
+          
+          // Letakkan data lokal terbaru di posisi paling atas tabel
+          htmlBuffer = trHtml + htmlBuffer; 
+        }
+      }
+
       tbody.innerHTML = htmlBuffer;
-      if(histori.length === 0) tbody.innerHTML = "";
+      if(processedPins.size === 0) tbody.innerHTML = "<tr><td colspan='11' style='text-align:center;'>Belum ada histori scan pada tanggal ini.</td></tr>";
+    
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan='11' style='text-align:center; color:red;'>Gagal memuat layar: ${error.message}</td></tr>`;
     }
   }
 
@@ -659,8 +701,14 @@
     document.getElementById("printCabangChecker").innerText = cabang.toUpperCase();
     
     document.body.classList.add('print-mode-checker');
-    window.print();
-    document.body.classList.remove('print-mode-checker');
+    
+    // Beri jeda 300ms agar browser HP sempat mengubah tampilan UI sebelum render Print PDF
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        document.body.classList.remove('print-mode-checker');
+      }, 500); // Hapus mode print setelah dialog ditutup
+    }, 300);
   }
 
   async function cariPaketKasir() {
@@ -791,8 +839,14 @@
     document.getElementById('kasirLaporanArea').classList.remove('hidden');
 
     document.body.classList.add('print-mode-kasir');
-    window.print();
-    document.body.classList.remove('print-mode-kasir');
+    
+    // Beri jeda sama seperti Checker untuk dukungan HP
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        document.body.classList.remove('print-mode-kasir');
+      }, 500);
+    }, 300);
   }
 
   // ==========================================
