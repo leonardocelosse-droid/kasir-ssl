@@ -505,7 +505,7 @@
       });
 
       await db.paket.clear();
-      await db.paket.bulkPut(paketLokal); // <--- PERUBAHAN: bulkAdd diganti menjadi bulkPut
+      await db.paket.bulkAdd(paketLokal);
       document.getElementById("infoSyncMaster").innerText = `✅ SUKSES! ${paketLokal.length} paket siap diakses OFFLINE.`;
       updateBadge("🟢 DB Lokal Siap");
 
