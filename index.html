@@ -899,10 +899,18 @@
       if (isWrongLocation && !isTaken) adaSalahCabang = true;
       if (!isTaken && !isWrongLocation) adaBelumDiambil = true;
 
-      let checkboxHtml = isTaken ? "✔️" : (isWrongLocation ? "🚫" : `<input type="checkbox" class="cb-kasir" value="${paket.noPaket}" data-harga="${paket.bayar}" checked onchange="hitungTotalKasir()">`);
+     let checkboxHtml = isTaken ? "✔️" : (isWrongLocation ? "🚫" : `<input type="checkbox" class="cb-kasir" value="${paket.noPaket}" data-harga="${paket.bayar}" checked onchange="hitungTotalKasir()">`);
       let trClass = isTaken ? "taken" : (isWrongLocation ? "warning-text" : "");
       let infoRak = paket.lokasiRak ? `<span style="color:#0056b3;">${paket.lokasiRak}</span>` : "-";
-      let tglAmbil = paket['Tanggal Ambil'] || paket.tanggalAmbil || paket.tanggal_ambil || paket.tgl || paket.tanggal || "-"; 
+      
+      // Ambil dari detailArray indeks 13 (yang mewakili Kolom N)
+      let tglAmbilMaster = (paket.detailArray && paket.detailArray[13]) ? paket.detailArray[13] : null;
+      let tglAmbil = paket['Tanggal Ambil'] || paket.tanggalAmbil || paket.tanggal_ambil || tglAmbilMaster || "-"; 
+      
+      // Opsional: Merapikan format tanggal jika ditarik dalam bentuk timestamp panjang
+      if (tglAmbil && tglAmbil.length > 10 && tglAmbil.includes("T")) {
+         tglAmbil = tglAmbil.split("T")[0]; // Memotong menjadi format YYYY-MM-DD
+      }
       
       tbody.innerHTML += `<tr class="${trClass}">
         <td style="text-align:center;">${checkboxHtml}</td>
