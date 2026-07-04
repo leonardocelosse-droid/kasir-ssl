@@ -219,7 +219,7 @@
               <div id="errorCabangKasir" class="alert alert-salah hidden" style="margin-top:10px;">⚠️ ADA PAKET SALAH CABANG - TIDAK BISA DIAMBIL DI SINI</div>
               <div style="overflow-x:auto;">
                 <table class="kasir-table">
-                  <thead><tr><th>Ambil?</th><th>No Paket</th><th>Tujuan</th><th>RAK</th><th>Berat</th><th>Harga (HKD)</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Ambil?</th><th>No Paket</th><th>Jenis</th><th>Tanggal Ambil</th><th>RAK</th><th>Berat</th><th>Harga (HKD)</th><th>Status</th></tr></thead>
                   <tbody id="tbodyKasir"></tbody>
                 </table>
               </div>
@@ -247,7 +247,7 @@
             <div id="areaRekapKasir"></div>
             <div style="overflow-x:auto;">
               <table class="kasir-table">
-                <thead><tr><th>No Paket</th><th>Tujuan</th><th>Harga</th><th>Metode</th><th>AKSI</th></tr></thead>
+                <thead><tr><th>No Paket</th><th>Jenis</th><th>Harga</th><th>Metode</th><th>AKSI</th></tr></thead>
                 <tbody id="tbodyLaporanKasir"></tbody>
               </table>
             </div>
@@ -576,7 +576,6 @@
         localStorage.setItem("blacklistChecker", JSON.stringify(blacklist));
     }
 
-    // Jika tadinya diset rak, kembalikan ke kosong di master data lokal
     await db.paket.update(pin.toString(), { lokasiRak: "" }).catch(e=>console.log(e));
 
     let cabangAktif = localStorage.getItem("sesiCabangSSL");
@@ -616,7 +615,7 @@
   async function submitScanChecker() {
     let inputRaw = document.getElementById("inputScanChecker").value.trim();
     let input = inputRaw.replace(/[^0-9]/g, '');
-    let rakTerpilih = document.getElementById("inputRak").value; // AMBIL NILAI RAK
+    let rakTerpilih = document.getElementById("inputRak").value; 
 
     if(!input) return;
     document.getElementById("inputScanChecker").value = "";
@@ -662,7 +661,6 @@
       return;
     }
 
-    // SIMPAN RAK KE MASTER DATA LOKAL AGAR MUNCUL DI KASIR
     if (paket && rakTerpilih) {
        await db.paket.update(finalPin.toString(), { lokasiRak: rakTerpilih });
        paket.lokasiRak = rakTerpilih; 
@@ -716,7 +714,6 @@
         if(i === 3) val = `<b>${val}</b>`; 
         trHtml += `<td>${val}</td>`;
     }
-    // Kolom Rak
     trHtml += `<td><b>${rakTerpilih || "-"}</b></td>`;
     trHtml += `<td><span class='badge ${badgeClass}'>${statusScan}</span></td>`;
     trHtml += `<td><button onclick="hapusHistoriChecker('${finalPin}', this)" class="btn-hapus">❌ Hapus</button></td></tr>`;
@@ -766,7 +763,6 @@
             trHtml += `<td>${val}</td>`;
         }
         
-        // Ambil info rak (Prioritaskan dari server h.lokasiRak jika ada, atau dari master db jika blm disync)
         let infoRak = h.lokasiRak || (master ? master.lokasiRak : "") || "-";
         trHtml += `<td><b>${infoRak}</b></td>`;
 
@@ -842,7 +838,7 @@
     let targetPhone = "";
     let namaKustomer = "";
 
-    // 1. Cari target phone berdasarkan input (bisa PIN atau No HP)
+    // 1. Cari target phone berdasarkan input
     let paketAwal = await db.paket.get(input);
     if (paketAwal) {
       targetPhone = normalisasiTelepon(paketAwal.phone) || (paketAwal.phone ? paketAwal.phone.toString() : "");
@@ -867,7 +863,7 @@
       return;
     }
 
-    // 2. Kumpulkan semua paket dengan No HP yang sama
+    // 2. Kumpulkan paket
     let kumpulanPaket = [];
     if (targetPhone) {
         let targetNorm = normalisasiTelepon(targetPhone);
@@ -888,7 +884,7 @@
     let adaSalahCabang = false;
     let adaBelumDiambil = false;
 
-    // 3. Render baris untuk setiap paket kustomer tersebut
+    // 3. Render baris
     kumpulanPaket.forEach(paket => {
       let isTaken = paket.statusAmbil === "Sudah Diambil";
       let tujuanLower = (paket.jenis||"").toLowerCase();
@@ -905,11 +901,16 @@
       let checkboxHtml = isTaken ? "✔️" : (isWrongLocation ? "🚫" : `<input type="checkbox" class="cb-kasir" value="${paket.noPaket}" data-harga="${paket.bayar}" checked onchange="hitungTotalKasir()">`);
       let trClass = isTaken ? "taken" : (isWrongLocation ? "warning-text" : "");
       let infoRak = paket.lokasiRak ? `<span style="color:#0056b3;">${paket.lokasiRak}</span>` : "-";
+      let tglAmbil = paket['Tanggal Ambil'] || paket.tanggalAmbil || paket.tanggal_ambil || paket.tgl || paket.tanggal || "-"; 
       
       tbody.innerHTML += `<tr class="${trClass}">
-        <td style="text-align:center;">${checkboxHtml}</td><td><b>${paket.noPaket}</b></td><td>${paket.jenis}</td>
+        <td style="text-align:center;">${checkboxHtml}</td>
+        <td><b>${paket.noPaket}</b></td>
+        <td>${paket.jenis || "-"}</td>
+        <td><b>${tglAmbil}</b></td>
         <td><b>${infoRak}</b></td>
-        <td>${paket.berat}</td><td>${paket.bayar}</td>
+        <td>${paket.berat || "-"}</td>
+        <td>${paket.bayar || "-"}</td>
         <td><b>${isTaken ? 'SUDAH DIAMBIL' : (isWrongLocation ? 'SALAH CABANG' : 'BELUM DIAMBIL')}</b></td>
       </tr>`;
     });
@@ -949,7 +950,6 @@
     let metode = document.getElementById("metodeBayarKasir").value;
     let cabangAktif = document.getElementById("lokasiKasirReadonly").value;
     
-    // Loop untuk mencatat pembayaran SEMUA paket yang dicentang
     for (let i = 0; i < checked.length; i++) {
         let noPaket = checked[i].value;
         await db.paket.update(noPaket, { statusAmbil: "Sudah Diambil", jenisBayar: metode });
@@ -1037,4 +1037,4 @@
   setInterval(prosesAntreanLatarBelakang, 5000); 
 </script>
 </body>
-</html> 
+</html>
