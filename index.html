@@ -219,7 +219,7 @@
               <div id="errorCabangKasir" class="alert alert-salah hidden" style="margin-top:10px;">⚠️ ADA PAKET SALAH CABANG - TIDAK BISA DIAMBIL DI SINI</div>
               <div style="overflow-x:auto;">
                 <table class="kasir-table">
-                  <thead><tr><th>Ambil?</th><th>No Paket</th><th>Jenis</th><th>Tanggal Ambil</th><th>RAK</th><th>Berat</th><th>Harga (HKD)</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Ambil?</th><th>No Paket</th><th>Agen</th><th>Jenis/Tujuan</th><th>Tgl Ambil</th><th>RAK</th><th>Berat</th><th>Harga (HKD)</th><th>Status</th></tr></thead>
                   <tbody id="tbodyKasir"></tbody>
                 </table>
               </div>
@@ -247,7 +247,7 @@
             <div id="areaRekapKasir"></div>
             <div style="overflow-x:auto;">
               <table class="kasir-table">
-                <thead><tr><th>No Paket</th><th>Jenis</th><th>Harga</th><th>Metode</th><th>AKSI</th></tr></thead>
+                <thead><tr><th>No Paket</th><th>Tujuan</th><th>Harga</th><th>Metode</th><th>AKSI</th></tr></thead>
                 <tbody id="tbodyLaporanKasir"></tbody>
               </table>
             </div>
@@ -297,8 +297,9 @@
   // ==========================================
   // 1. INISIALISASI INDEXED-DB & VARIABEL GLOBAL
   // ==========================================
+  // PERBARUAN: Menambahkan kolom agen dan tanggalAmbil di struktur DB
   const db = new Dexie("SSLExpressDB");
-  db.version(1).stores({ paket: 'noPaket, phone, nama, jenis, statusAmbil, berat, bayar, lokasiRak', antrean: '++id, type, status' });
+  db.version(1).stores({ paket: 'noPaket, phone, nama, agen, jenis, statusAmbil, berat, bayar, lokasiRak, tanggalAmbil', antrean: '++id, type, status' });
   let memoriScanLokal = [];
   
   let qrScanner = null;
@@ -900,12 +901,15 @@
 
       let checkboxHtml = isTaken ? "✔️" : (isWrongLocation ? "🚫" : `<input type="checkbox" class="cb-kasir" value="${paket.noPaket}" data-harga="${paket.bayar}" checked onchange="hitungTotalKasir()">`);
       let trClass = isTaken ? "taken" : (isWrongLocation ? "warning-text" : "");
+      
       let infoRak = paket.lokasiRak ? `<span style="color:#0056b3;">${paket.lokasiRak}</span>` : "-";
-      let tglAmbil = paket['Tanggal Ambil'] || paket.tanggalAmbil || paket.tanggal_ambil || paket.tgl || paket.tanggal || "-"; 
+      let agen = paket.agen || "-";
+      let tglAmbil = paket.tanggalAmbil || "-"; 
       
       tbody.innerHTML += `<tr class="${trClass}">
         <td style="text-align:center;">${checkboxHtml}</td>
         <td><b>${paket.noPaket}</b></td>
+        <td>${agen}</td>
         <td>${paket.jenis || "-"}</td>
         <td><b>${tglAmbil}</b></td>
         <td><b>${infoRak}</b></td>
@@ -1037,4 +1041,4 @@
   setInterval(prosesAntreanLatarBelakang, 5000); 
 </script>
 </body>
-</html> 
+</html>
