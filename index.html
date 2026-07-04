@@ -247,7 +247,8 @@
             <div id="areaRekapKasir"></div>
             <div style="overflow-x:auto;">
               <table class="kasir-table">
-                <thead><tr><th>No Paket</th><th>Jenis</th><th>Harga</th><th>Metode</th><th>AKSI</th></tr></thead>
+                <!-- Penambahan header Tgl Ambil -->
+                <thead><tr><th>No Paket</th><th>Jenis</th><th>Tgl Ambil</th><th>Harga</th><th>Metode</th><th>AKSI</th></tr></thead>
                 <tbody id="tbodyLaporanKasir"></tbody>
               </table>
             </div>
@@ -972,13 +973,13 @@
     let cabangAktif = document.getElementById("lokasiKasirReadonly").value; 
 
     if(!tglPilihan) {
-       tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>Silakan pastikan Tanggal terpilih di menu Checker.</td></tr>";
+       tbody.innerHTML = "<tr><td colspan='6' style='text-align:center;'>Silakan pastikan Tanggal terpilih di menu Checker.</td></tr>";
        areaRekap.innerHTML = "";
        return;
     }
 
     // Menampilkan indikator loading
-    tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>⏳ Sedang mensinkronkan data server...</td></tr>";
+    tbody.innerHTML = "<tr><td colspan='6' style='text-align:center;'>⏳ Sedang mensinkronkan data server...</td></tr>";
 
     // Tarik langsung dari Spreadsheet ID Anda
     const sheetId = "1p6y2OYYyGhyEGbCB8CIxa8nBogOxpkcdSSw5_RkWV0E";
@@ -1006,11 +1007,11 @@
       if (idxBayar === -1) idxBayar = 18;   // Kolom S = 18
       if (idxCabang === -1) idxCabang = 19; // Kolom T = 19
       
-     let idxNoPaket = cols.findIndex(c => c.includes("no paket") || c.includes("resi")) !== -1 ? cols.findIndex(c => c.includes("no paket") || c.includes("resi")) : 3;
+      // Indeks Pencarian dan Penyesuaian Kolom
+      let idxNoPaket = cols.findIndex(c => c.includes("no paket") || c.includes("resi")) !== -1 ? cols.findIndex(c => c.includes("no paket") || c.includes("resi")) : 3;
       let idxTujuan = cols.findIndex(c => c.includes("tujuan") || c.includes("jenis")) !== -1 ? cols.findIndex(c => c.includes("tujuan") || c.includes("jenis")) : 5;
-      
-      // Baris lama yang mengandung kata "harga" DIHAPUS, cukup gunakan baris ini:
       let idxHarga = cols.findIndex(c => c.includes("bayar")) !== -1 ? cols.findIndex(c => c.includes("bayar")) : 8;
+      let idxTglAmbil = cols.findIndex(c => c.includes("tanggal ambil")) !== -1 ? cols.findIndex(c => c.includes("tanggal ambil")) : 13;
 
       let subtotals = { "Cash": 0, "Octopus": 0, "Alipay": 0, "Kartu Kredit": 0, "Kredit / Hutang": 0, "Lain-lain": 0 };
       let totalSemua = 0;
@@ -1037,8 +1038,10 @@
         let matchDate = possibleDates.some(pd => tglStr.includes(pd));
 
         if (isLunas && isCabangSesuai && matchDate && jenisBayar) {
+          
           let noPaket = c[idxNoPaket] ? (c[idxNoPaket].f || c[idxNoPaket].v) : "-";
           let tujuan = c[idxTujuan] ? (c[idxTujuan].f || c[idxTujuan].v) : "-";
+          let tglAmbilBarang = c[idxTglAmbil] ? (c[idxTglAmbil].f || c[idxTglAmbil].v) : "-"; 
           let hargaHKD = parseFloat(c[idxHarga] ? (c[idxHarga].v || c[idxHarga].f) : 0) || 0; // Ambil value raw
 
           // Kelompokkan metode pembayaran
@@ -1056,6 +1059,7 @@
           htmlTbody += `<tr>
               <td><b>${noPaket}</b></td>
               <td>${tujuan}</td>
+              <td>${tglAmbilBarang}</td>
               <td>HKD ${hargaHKD}</td>
               <td>${jenisBayar}</td>
               <td><span style="color:#10b981; font-weight:bold; font-size: 11px;">✅ Realtime</span></td>
@@ -1064,7 +1068,7 @@
       });
 
       if (htmlTbody === "") {
-        tbody.innerHTML = `<tr><td colspan='5' style='text-align:center;'>Belum ada pendapatan (Realtime) di tanggal ${tglPilihan}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan='6' style='text-align:center;'>Belum ada pendapatan (Realtime) di tanggal ${tglPilihan}</td></tr>`;
         areaRekap.innerHTML = ""; 
       } else {
         tbody.innerHTML = htmlTbody;
@@ -1081,7 +1085,7 @@
 
     } catch (error) {
       console.error(error);
-      tbody.innerHTML = `<tr><td colspan='5' style='text-align:center; color:red;'><b>Gagal mengambil data Realtime.</b><br>Pastikan Spreadsheet Anda memiliki akses: <b>"Siapa saja yang memiliki link dapat melihat"</b></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan='6' style='text-align:center; color:red;'><b>Gagal mengambil data Realtime.</b><br>Pastikan Spreadsheet Anda memiliki akses: <b>"Siapa saja yang memiliki link dapat melihat"</b></td></tr>`;
     }
   }
 
@@ -1136,4 +1140,4 @@
   setInterval(prosesAntreanLatarBelakang, 5000); 
 </script>
 </body>
-</html> 
+</html>
