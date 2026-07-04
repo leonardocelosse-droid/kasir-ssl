@@ -905,15 +905,31 @@
       return;
     }
 
-    // 2. Kumpulkan paket
+    // 2. Kumpulkan paket berdasarkan Nomor HP dan Tanggal yang Sama
     let kumpulanPaket = [];
     if (targetPhone) {
         let targetNorm = normalisasiTelepon(targetPhone);
+        
+        // Ambil patokan tanggal dari paket yang di-scan pertama kali
+        let targetDate = null;
+        if (paketAwal) {
+            targetDate = paketAwal['Tanggal Ambil'] || paketAwal.tanggalAmbil || paketAwal.tanggal_ambil || (paketAwal.detailArray && paketAwal.detailArray[13] ? paketAwal.detailArray[13] : null);
+        }
+
         kumpulanPaket = allPaket.filter(p => {
            if(!p.phone) return false;
            let dbNorm = normalisasiTelepon(p.phone);
            let rawDb = p.phone.toString().replace(/[^0-9]/g, '');
-           return dbNorm === targetNorm || rawDb === targetPhone;
+           let matchPhone = (dbNorm === targetNorm || rawDb === targetPhone);
+           
+           // Jika nomor HP cocok dan kita memiliki patokan tanggal dari paket awal
+           if (matchPhone && targetDate) {
+               let pDate = p['Tanggal Ambil'] || p.tanggalAmbil || p.tanggal_ambil || (p.detailArray && p.detailArray[13] ? p.detailArray[13] : null);
+               return pDate === targetDate;
+           }
+           
+           // Jika dicari pakai No HP secara manual (tanpa PIN), tidak akan mem-filter tanggal
+           return matchPhone;
         });
     } else if (paketAwal) {
         kumpulanPaket = [paketAwal];
