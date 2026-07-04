@@ -112,7 +112,7 @@
     <div id="loginArea" class="card">
       <div class="login-header">
         <h1>Selamat Datang</h1>
-        <p style="font-size:14px; color:#6b7280; margin-top:4px;">Akses Cloud API GitHub Edition</p>
+        <p style="font-size:14px; color:#6b7280; margin-top:4px;">Akses Cloud API</p>
       </div>
       <label>KODE CABANG</label>
       <input type="text" id="inputCabang" placeholder="Contoh: WTS, CWB, ABERDEEN">
@@ -219,7 +219,8 @@
               <div id="errorCabangKasir" class="alert alert-salah hidden" style="margin-top:10px;">⚠️ ADA PAKET SALAH CABANG - TIDAK BISA DIAMBIL DI SINI</div>
               <div style="overflow-x:auto;">
                 <table class="kasir-table">
-                  <thead><tr><th>Ambil?</th><th>No Paket</th><th>Jenis</th><th>Tanggal Ambil</th><th>RAK</th><th>Berat</th><th>Harga (HKD)</th><th>Status</th></tr></thead>
+                  <!-- STRUKTUR TABEL KASIR BARU -->
+                  <thead><tr><th>Ambil?</th><th>No Paket</th><th>Agen</th><th>Jenis/Tujuan</th><th>Tgl Ambil</th><th>RAK</th><th>Berat</th><th>Harga (HKD)</th><th>Status</th></tr></thead>
                   <tbody id="tbodyKasir"></tbody>
                 </table>
               </div>
@@ -247,7 +248,7 @@
             <div id="areaRekapKasir"></div>
             <div style="overflow-x:auto;">
               <table class="kasir-table">
-                <thead><tr><th>No Paket</th><th>Jenis</th><th>Harga</th><th>Metode</th><th>AKSI</th></tr></thead>
+                <thead><tr><th>No Paket</th><th>Tujuan</th><th>Harga</th><th>Metode</th><th>AKSI</th></tr></thead>
                 <tbody id="tbodyLaporanKasir"></tbody>
               </table>
             </div>
@@ -297,8 +298,9 @@
   // ==========================================
   // 1. INISIALISASI INDEXED-DB & VARIABEL GLOBAL
   // ==========================================
+  // Tidak perlu mengubah versi Dexie, data baru tetap bisa dibaca dari property array
   const db = new Dexie("SSLExpressDB");
-  db.version(1).stores({ paket: 'noPaket, phone, nama, jenis, statusAmbil, berat, bayar, lokasiRak', antrean: '++id, type, status' });
+  db.version(1).stores({ paket: 'noPaket, phone, nama, jenis, statusAmbil, berat, bayar', antrean: '++id, type, status' });
   let memoriScanLokal = [];
   
   let qrScanner = null;
@@ -671,7 +673,7 @@
     let detailArr = ["-", "-", "-", finalPin, "-", "-", "-", "-", "-", "-", "-"];
     
     if(paket) {
-      tujuanMaster = paket.jenis || "-";
+      tujuanMaster = paket.jenis || (paket.detailArray ? paket.detailArray[5] : "-") || "-";
       detailArr = paket.detailArray || detailArr;
       let tLower = tujuanMaster.toLowerCase();
       let cLower = cabangAktif.toLowerCase();
@@ -838,7 +840,6 @@
     let targetPhone = "";
     let namaKustomer = "";
 
-    // 1. Cari target phone berdasarkan input
     let paketAwal = await db.paket.get(input);
     if (paketAwal) {
       targetPhone = normalisasiTelepon(paketAwal.phone) || (paketAwal.phone ? paketAwal.phone.toString() : "");
@@ -863,7 +864,6 @@
       return;
     }
 
-    // 2. Kumpulkan paket
     let kumpulanPaket = [];
     if (targetPhone) {
         let targetNorm = normalisasiTelepon(targetPhone);
@@ -884,10 +884,14 @@
     let adaSalahCabang = false;
     let adaBelumDiambil = false;
 
-    // 3. Render baris
+    // --- PROSES RENDER BARIS DI TABEL KASIR ---
     kumpulanPaket.forEach(paket => {
       let isTaken = paket.statusAmbil === "Sudah Diambil";
-      let tujuanLower = (paket.jenis||"").toLowerCase();
+      
+      // Ambil data Jenis dari property asli ATAU dari detailArray (Kolom F / index 5)
+      let jenisTujuan = paket.jenis || (paket.detailArray ? paket.detailArray[5] : "-") || "-";
+      
+      let tujuanLower = jenisTujuan.toLowerCase();
       let isBenar = false;
       if (cabangAktif.includes("cwb") && (tujuanLower.includes("cwb") || tujuanLower.includes("causeway bay"))) isBenar = true;
       else if (cabangAktif.includes("ssp") && (tujuanLower.includes("ssp") || tujuanLower.includes("sham shui po"))) isBenar = true;
@@ -900,13 +904,21 @@
 
       let checkboxHtml = isTaken ? "✔️" : (isWrongLocation ? "🚫" : `<input type="checkbox" class="cb-kasir" value="${paket.noPaket}" data-harga="${paket.bayar}" checked onchange="hitungTotalKasir()">`);
       let trClass = isTaken ? "taken" : (isWrongLocation ? "warning-text" : "");
-      let infoRak = paket.lokasiRak ? `<span style="color:#0056b3;">${paket.lokasiRak}</span>` : "-";
-      let tglAmbil = paket['Tanggal Ambil'] || paket.tanggalAmbil || paket.tanggal_ambil || paket.tgl || paket.tanggal || "-"; 
       
+      let infoRak = paket.lokasiRak ? `<span style="color:#0056b3;">${paket.lokasiRak}</span>` : "-";
+      
+      // AMBIL AGEN (Membaca property 'agen' atau Kolom E / index 4 dari detailArray)
+      let agen = paket.agen || (paket.detailArray ? paket.detailArray[4] : "-") || "-";
+      
+      // AMBIL TANGGAL AMBIL (Membaca dari banyak kemungkinan nama variabel dari script backend Anda)
+      let tglAmbil = paket.tanggalAmbil || paket['Tanggal Ambil'] || paket.tgl_ambil || paket.tgl || "-";
+      
+      // STRUKTUR TR (Table Row) BARU DENGAN AGEN & TGL AMBIL
       tbody.innerHTML += `<tr class="${trClass}">
         <td style="text-align:center;">${checkboxHtml}</td>
         <td><b>${paket.noPaket}</b></td>
-        <td>${paket.jenis || "-"}</td>
+        <td>${agen}</td>
+        <td>${jenisTujuan}</td>
         <td><b>${tglAmbil}</b></td>
         <td><b>${infoRak}</b></td>
         <td>${paket.berat || "-"}</td>
@@ -979,7 +991,10 @@
         let jenis = p.jenisBayar || "Lain-lain";
         if (subtotals[jenis] !== undefined) { subtotals[jenis] += hargaHKD; } else { subtotals["Lain-lain"] += hargaHKD; }
         totalSemua += hargaHKD;
-        tbody.innerHTML += `<tr><td><b>${p.noPaket}</b></td><td>${p.jenis}</td><td>HKD ${hargaHKD}</td><td>${jenis}</td><td><button onclick="batalBayarKasir('${p.noPaket}', this)" class="btn-hapus">❌ Batal</button></td></tr>`;
+        
+        let jenisTujuan = p.jenis || (p.detailArray ? p.detailArray[5] : "-") || "-";
+        
+        tbody.innerHTML += `<tr><td><b>${p.noPaket}</b></td><td>${jenisTujuan}</td><td>HKD ${hargaHKD}</td><td>${jenis}</td><td><button onclick="batalBayarKasir('${p.noPaket}', this)" class="btn-hapus">❌ Batal</button></td></tr>`;
       });
       areaRekap.innerHTML = `
         <div style="background:#e9ecef; padding:20px; border-radius:10px; margin-bottom:20px; border:1px solid #ccc; display:flex; flex-wrap:wrap; justify-content:space-between; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
