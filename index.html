@@ -54,7 +54,7 @@
 
     /* CHECKER TABLE CSS */
     .table-container { overflow-x: auto; margin-top: 10px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; }
-    .checker-table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 900px; }
+    .checker-table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 1000px; }
     .checker-table td, .checker-table th { padding: 10px 12px; text-align: left; border-bottom: 1px solid #f3f4f6; }
     .checker-table th { background-color: #f8fafc; color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 11px; }
     
@@ -140,6 +140,32 @@
           <div id="reader-checker" class="scanner-container hidden"></div>
           <button type="button" id="btn-scan-checker" onclick="toggleScanner('CHECKER')" class="btn-camera">📷 Mulai Scan Beruntun</button>
           
+          <label style="color:#1e3a8a;">LOKASI RAK (OPSIONAL)</label>
+          <select id="inputRak">
+            <option value="">-- Pilih Jika Masuk Rak --</option>
+            <optgroup label="Rak 1">
+              <option value="Rak 1A">Rak 1A</option>
+              <option value="Rak 1B">Rak 1B</option>
+              <option value="Rak 1C">Rak 1C</option>
+              <option value="Rak 1D">Rak 1D</option>
+              <option value="Rak 1E">Rak 1E</option>
+            </optgroup>
+            <optgroup label="Rak 2">
+              <option value="Rak 2A">Rak 2A</option>
+              <option value="Rak 2B">Rak 2B</option>
+              <option value="Rak 2C">Rak 2C</option>
+              <option value="Rak 2D">Rak 2D</option>
+              <option value="Rak 2E">Rak 2E</option>
+            </optgroup>
+            <optgroup label="Rak 3">
+              <option value="Rak 3A">Rak 3A</option>
+              <option value="Rak 3B">Rak 3B</option>
+              <option value="Rak 3C">Rak 3C</option>
+              <option value="Rak 3D">Rak 3D</option>
+              <option value="Rak 3E">Rak 3E</option>
+            </optgroup>
+          </select>
+
           <input type="text" inputmode="numeric" pattern="[0-9]*" id="inputScanChecker" placeholder="Arahkan Barcode Scanner / PIN Paket..." onkeypress="if(event.key === 'Enter') submitScanChecker()">
           <button onclick="submitScanChecker()" class="btn-primary">Kirim Data Paket</button>
           
@@ -160,7 +186,7 @@
           <div class="card-title">Histori Paket Terproses</div>
           <div class="table-container">
             <table class="checker-table">
-              <thead><tr><th>NAMA</th><th>KODE</th><th>TELP</th><th>PIN</th><th>AGEN</th><th>JENIS</th><th>BERAT</th><th>HARGA</th><th>BAYAR</th><th>CATT</th><th>STATUS</th><th>AKSI</th></tr></thead>
+              <thead><tr><th>NAMA</th><th>KODE</th><th>TELP</th><th>PIN</th><th>AGEN</th><th>JENIS</th><th>BERAT</th><th>HARGA</th><th>BAYAR</th><th>CATT</th><th>RAK</th><th>STATUS</th><th>AKSI</th></tr></thead>
               <tbody id="bodyTabelChecker"></tbody>
             </table>
           </div>
@@ -193,7 +219,7 @@
               <div id="errorCabangKasir" class="alert alert-salah hidden" style="margin-top:10px;">⚠️ ADA PAKET SALAH CABANG - TIDAK BISA DIAMBIL DI SINI</div>
               <div style="overflow-x:auto;">
                 <table class="kasir-table">
-                  <thead><tr><th>Ambil?</th><th>No Paket</th><th>Tujuan</th><th>Berat</th><th>Harga (HKD)</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Ambil?</th><th>No Paket</th><th>Tujuan</th><th>RAK</th><th>Berat</th><th>Harga (HKD)</th><th>Status</th></tr></thead>
                   <tbody id="tbodyKasir"></tbody>
                 </table>
               </div>
@@ -272,7 +298,7 @@
   // 1. INISIALISASI INDEXED-DB & VARIABEL GLOBAL
   // ==========================================
   const db = new Dexie("SSLExpressDB");
-  db.version(1).stores({ paket: 'noPaket, phone, nama, jenis, statusAmbil, berat, bayar', antrean: '++id, type, status' });
+  db.version(1).stores({ paket: 'noPaket, phone, nama, jenis, statusAmbil, berat, bayar, lokasiRak', antrean: '++id, type, status' });
   let memoriScanLokal = [];
   
   let qrScanner = null;
@@ -535,7 +561,6 @@
 
     if(btn) { btn.innerText = "⏳ Proses..."; btn.disabled = true; }
 
-    // 1. Hapus dari antrean jika belum sempat terkirim
     let pendingScans = await db.antrean.where('status').equals('pending').toArray();
     for (let p of pendingScans) {
       if (p.type === 'CHECKER_SCAN' && p.payload.noPaket.toString() === pin.toString()) {
@@ -543,24 +568,23 @@
       }
     }
 
-    // 2. Lepaskan kunci lokal agar nomor bisa di-scan ulang jika perlu
     memoriScanLokal = memoriScanLokal.filter(p => p !== pin.toString());
 
-    // 3. Masukkan ke BLACKLIST LOKAL (Agar langsung hilang di layar walau di server belum terhapus)
     let blacklist = JSON.parse(localStorage.getItem("blacklistChecker") || "[]");
     if(!blacklist.includes(pin.toString())) {
         blacklist.push(pin.toString());
         localStorage.setItem("blacklistChecker", JSON.stringify(blacklist));
     }
 
-    // 4. Info ke server (tambahkan await agar sinkron dengan Google Sheets)
+    // Jika tadinya diset rak, kembalikan ke kosong di master data lokal
+    await db.paket.update(pin.toString(), { lokasiRak: "" }).catch(e=>console.log(e));
+
     let cabangAktif = localStorage.getItem("sesiCabangSSL");
     let tgl = document.getElementById("inputTanggalPilihan").value;
     try {
         await callAPI({ action: "hapusHistoriChecker", noPaket: pin, cabang: cabangAktif, tanggalStr: tgl });
     } catch(e) {}
 
-    // 5. Update Layar
     muatLaporanTanggalLayar();
   }
 
@@ -569,10 +593,8 @@
 
     if(btn) { btn.innerText = "⏳ Batal..."; btn.disabled = true; }
 
-    // Kembalikan status lokal menjadi kosong
     await db.paket.update(pin.toString(), { statusAmbil: "", jenisBayar: "" });
 
-    // Hapus dari antrean sync
     let pendingScans = await db.antrean.where('status').equals('pending').toArray();
     for (let p of pendingScans) {
       if (p.type === 'KASIR_BAYAR' && p.payload.noPaket.toString() === pin.toString()) {
@@ -580,7 +602,6 @@
       }
     }
 
-    // Info ke server API
     let cabangAktif = document.getElementById("lokasiKasirReadonly").value;
     try {
         await callAPI({ action: "batalBayarKasir", noPaket: pin, cabang: cabangAktif });
@@ -595,6 +616,8 @@
   async function submitScanChecker() {
     let inputRaw = document.getElementById("inputScanChecker").value.trim();
     let input = inputRaw.replace(/[^0-9]/g, '');
+    let rakTerpilih = document.getElementById("inputRak").value; // AMBIL NILAI RAK
+
     if(!input) return;
     document.getElementById("inputScanChecker").value = "";
     
@@ -615,7 +638,6 @@
 
     let finalPin = paket ? paket.noPaket : input;
 
-    // Jika nomor ini pernah dihapus hari ini, lepaskan dari blacklist agar bisa discan ulang
     let blacklist = JSON.parse(localStorage.getItem("blacklistChecker") || "[]");
     if(blacklist.includes(finalPin.toString())) {
        let newBl = blacklist.filter(b => b !== finalPin.toString());
@@ -640,6 +662,12 @@
       return;
     }
 
+    // SIMPAN RAK KE MASTER DATA LOKAL AGAR MUNCUL DI KASIR
+    if (paket && rakTerpilih) {
+       await db.paket.update(finalPin.toString(), { lokasiRak: rakTerpilih });
+       paket.lokasiRak = rakTerpilih; 
+    }
+
     let tujuanMaster = "Tidak Ditemukan";
     let statusScan = "TIDAK ADA DATA";
     let detailArr = ["-", "-", "-", finalPin, "-", "-", "-", "-", "-", "-", "-"];
@@ -659,7 +687,8 @@
         statusScan = "BENAR";
         playBeep();
         alertBox.className = "alert alert-benar";
-        alertBox.innerHTML = `✅ <b>BENAR</b> - Paket ${finalPin} Sesuai Cabang.`;
+        let teksRak = rakTerpilih ? ` (Rak: ${rakTerpilih})` : "";
+        alertBox.innerHTML = `✅ <b>BENAR</b> - Paket ${finalPin} Sesuai Cabang${teksRak}.`;
       } else {
         statusScan = "SALAH";
         playTetot();
@@ -675,7 +704,7 @@
     }
 
     memoriScanLokal.push(finalPin.toString());
-    await db.antrean.add({ type: 'CHECKER_SCAN', status: 'pending', payload: { noPaket: finalPin, cabang: cabangAktif, tujuan: tujuanMaster, status: statusScan } });
+    await db.antrean.add({ type: 'CHECKER_SCAN', status: 'pending', payload: { noPaket: finalPin, cabang: cabangAktif, tujuan: tujuanMaster, status: statusScan, lokasiRak: rakTerpilih } });
     
     let tbody = document.getElementById("bodyTabelChecker");
     if(tbody.innerHTML.includes("Memuat data")) tbody.innerHTML = "";
@@ -687,6 +716,8 @@
         if(i === 3) val = `<b>${val}</b>`; 
         trHtml += `<td>${val}</td>`;
     }
+    // Kolom Rak
+    trHtml += `<td><b>${rakTerpilih || "-"}</b></td>`;
     trHtml += `<td><span class='badge ${badgeClass}'>${statusScan}</span></td>`;
     trHtml += `<td><button onclick="hapusHistoriChecker('${finalPin}', this)" class="btn-hapus">❌ Hapus</button></td></tr>`;
     tbody.insertAdjacentHTML('afterbegin', trHtml);
@@ -699,7 +730,7 @@
     
     if (!tgl) return; 
 
-    tbody.innerHTML = "<tr><td colspan='12' style='text-align:center;'>Memuat data...</td></tr>";
+    tbody.innerHTML = "<tr><td colspan='13' style='text-align:center;'>Memuat data...</td></tr>";
     
     let histori = [];
     let htmlBuffer = "";
@@ -720,7 +751,7 @@
       for (let h of histori.reverse()) {
         let pinStr = h.dataScan.toString();
         if (processedPins.has(pinStr)) continue; 
-        if (blacklist.includes(pinStr)) continue; // Abaikan PIN yang ada di blacklist hapus
+        if (blacklist.includes(pinStr)) continue; 
         
         processedPins.add(pinStr);
         memoriScanLokal.push(pinStr);
@@ -734,6 +765,11 @@
             if(i === 3) val = `<b>${val}</b>`; 
             trHtml += `<td>${val}</td>`;
         }
+        
+        // Ambil info rak (Prioritaskan dari server h.lokasiRak jika ada, atau dari master db jika blm disync)
+        let infoRak = h.lokasiRak || (master ? master.lokasiRak : "") || "-";
+        trHtml += `<td><b>${infoRak}</b></td>`;
+
         trHtml += `<td><span class='badge ${badgeClass}'>${h.status}</span></td>`;
         trHtml += `<td><button onclick="hapusHistoriChecker('${pinStr}', this)" class="btn-hapus">❌ Hapus</button></td></tr>`;
         htmlBuffer += trHtml;
@@ -744,7 +780,7 @@
         if (p.type === 'CHECKER_SCAN') {
           let pinStr = p.payload.noPaket.toString();
           if (processedPins.has(pinStr)) continue; 
-          if (blacklist.includes(pinStr)) continue; // Abaikan PIN yang ada di blacklist hapus
+          if (blacklist.includes(pinStr)) continue; 
           
           processedPins.add(pinStr);
           memoriScanLokal.push(pinStr);
@@ -758,6 +794,10 @@
               if(i === 3) val = `<b>${val}</b>`; 
               trHtml += `<td>${val}</td>`;
           }
+          
+          let infoRak = p.payload.lokasiRak || "-";
+          trHtml += `<td><b>${infoRak}</b></td>`;
+
           trHtml += `<td><span class='badge ${badgeClass}'>${p.payload.status} (Menunggu)</span></td>`;
           trHtml += `<td><button onclick="hapusHistoriChecker('${pinStr}', this)" class="btn-hapus">❌ Hapus</button></td></tr>`;
           
@@ -766,10 +806,10 @@
       }
 
       tbody.innerHTML = htmlBuffer;
-      if(processedPins.size === 0 || htmlBuffer === "") tbody.innerHTML = "<tr><td colspan='12' style='text-align:center;'>Belum ada histori scan pada tanggal ini.</td></tr>";
+      if(processedPins.size === 0 || htmlBuffer === "") tbody.innerHTML = "<tr><td colspan='13' style='text-align:center;'>Belum ada histori scan pada tanggal ini.</td></tr>";
     
     } catch (error) {
-      tbody.innerHTML = `<tr><td colspan='12' style='text-align:center; color:red;'>Gagal menyusun tabel: ${error.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan='13' style='text-align:center; color:red;'>Gagal menyusun tabel: ${error.message}</td></tr>`;
     }
   }
 
@@ -864,9 +904,12 @@
 
       let checkboxHtml = isTaken ? "✔️" : (isWrongLocation ? "🚫" : `<input type="checkbox" class="cb-kasir" value="${paket.noPaket}" data-harga="${paket.bayar}" checked onchange="hitungTotalKasir()">`);
       let trClass = isTaken ? "taken" : (isWrongLocation ? "warning-text" : "");
+      let infoRak = paket.lokasiRak ? `<span style="color:#0056b3;">${paket.lokasiRak}</span>` : "-";
       
       tbody.innerHTML += `<tr class="${trClass}">
-        <td style="text-align:center;">${checkboxHtml}</td><td><b>${paket.noPaket}</b></td><td>${paket.jenis}</td><td>${paket.berat}</td><td>${paket.bayar}</td>
+        <td style="text-align:center;">${checkboxHtml}</td><td><b>${paket.noPaket}</b></td><td>${paket.jenis}</td>
+        <td><b>${infoRak}</b></td>
+        <td>${paket.berat}</td><td>${paket.bayar}</td>
         <td><b>${isTaken ? 'SUDAH DIAMBIL' : (isWrongLocation ? 'SALAH CABANG' : 'BELUM DIAMBIL')}</b></td>
       </tr>`;
     });
