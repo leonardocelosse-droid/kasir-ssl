@@ -219,7 +219,7 @@
               <div id="errorCabangKasir" class="alert alert-salah hidden" style="margin-top:10px;">⚠️ ADA PAKET SALAH CABANG - TIDAK BISA DIAMBIL DI SINI</div>
               <div style="overflow-x:auto;">
                 <table class="kasir-table">
-                  <thead><tr><th>Ambil?</th><th>No Paket</th><th>Agen</th><th>Jenis/Tujuan</th><th>Tgl Ambil</th><th>RAK</th><th>Berat</th><th>Harga (HKD)</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Ambil?</th><th>No Paket</th><th>Agen</th><th>Jenis/Tujuan</th><th>Tgl Ambil/Masuk</th><th>RAK</th><th>Berat</th><th>Harga (HKD)</th><th>Status</th></tr></thead>
                   <tbody id="tbodyKasir"></tbody>
                 </table>
               </div>
@@ -652,12 +652,12 @@
       return;
     }
 
-    if (paket && paket.statusAmbil === "Sudah Diambil") {
+    if (paket && (paket.statusAmbil === "Sudah Diambil" || paket.statusAmbil === "Lunas")) {
       playTetot();
       alertBox.className = "alert alert-salah";
       alertBox.style.backgroundColor = "#fee2e2";
       alertBox.style.color = "#991b1b";
-      alertBox.innerHTML = `🛑 <b>INVALID (SUDAH DIAMBIL)</b><br>Paket <b>${finalPin}</b> sudah tercatat diserahkan ke kustomer di Master Data. Fisik paket seharusnya tidak ada!`;
+      alertBox.innerHTML = `🛑 <b>INVALID (SUDAH DIAMBIL)</b><br>Paket <b>${finalPin}</b> sudah tercatat diserahkan ke kustomer.`;
       return;
     }
 
@@ -882,9 +882,8 @@
     let adaSalahCabang = false;
     let adaBelumDiambil = false;
 
-    // --- PROSES RENDER BARIS DI TABEL KASIR ---
     kumpulanPaket.forEach(paket => {
-      let isTaken = paket.statusAmbil === "Sudah Diambil";
+      let isTaken = (paket.statusAmbil === "Sudah Diambil" || paket.statusAmbil === "Lunas");
       
       let jenisTujuan = paket.jenis || (paket.detailArray ? paket.detailArray[5] : "-") || "-";
       
@@ -903,14 +902,12 @@
       let trClass = isTaken ? "taken" : (isWrongLocation ? "warning-text" : "");
       
       let infoRak = paket.lokasiRak ? `<span style="color:#0056b3;">${paket.lokasiRak}</span>` : "-";
-      
-      // Mengambil Agen (Membaca property 'agen' atau Kolom E / index 4 dari detailArray)
       let agen = paket.agen || (paket.detailArray ? paket.detailArray[4] : "-") || "-";
       
-      // Mengambil Tanggal Ambil (Membaca dari banyak kemungkinan variabel, ATAU dari Kolom N / index 13 pada detailArray)
-      let tglAmbil = paket.tanggalAmbil || paket['Tanggal Ambil'] || paket.tgl_ambil || paket.tgl || (paket.detailArray ? paket.detailArray[13] : null) || "-";
+      // PERBAIKAN: Menambahkan paket.tanggalMasuk khusus membaca backend Anda 
+      let tglAmbil = paket.tanggalMasuk || paket.tanggalAmbil || paket['Tanggal Ambil'] || paket.tgl_ambil || paket.tgl || (paket.detailArray && paket.detailArray.length > 13 ? paket.detailArray[13] : null) || "-";
+      if(!tglAmbil || tglAmbil.toString().trim() === "") tglAmbil = "-"; 
       
-      // STRUKTUR TR (Table Row) TABEL KASIR
       tbody.innerHTML += `<tr class="${trClass}">
         <td style="text-align:center;">${checkboxHtml}</td>
         <td><b>${paket.noPaket}</b></td>
