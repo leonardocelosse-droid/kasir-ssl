@@ -247,7 +247,7 @@
             <div id="areaRekapKasir"></div>
             <div style="overflow-x:auto;">
               <table class="kasir-table">
-                <thead><tr><th>No Paket</th><th>Jenis</th><th>Tgl Ambil</th><th>Harga</th><th>Metode</th><th>AKSI</th></tr></thead>
+                <thead><tr><th>No Paket</th><th>Jenis</th><th>Harga</th><th>Metode</th><th>AKSI</th></tr></thead>
                 <tbody id="tbodyLaporanKasir"></tbody>
               </table>
             </div>
@@ -456,64 +456,22 @@
   }
 
   // ==========================================
-  // 3. LOGIKA SYNC LOKAL (BYPASS CODE.GS - AMBIL LANGSUNG DARI SHEET)
+  // 3. LOGIKA SYNC LOKAL (PAGI HARI)
   // ==========================================
   async function tarikDataMasterLokal() {
     let btn = document.getElementById("btnSyncMaster");
-    btn.innerText = "Mengunduh Database Langsung... Jangan Tutup";
+    btn.innerText = "Mengunduh Database... Jangan Tutup Aplikasi";
     btn.disabled = true;
     
-    try {
-      // Menggunakan jalur langsung ke Spreadsheet (Bypass Code.gs)
-      const sheetId = "1p6y2OYYyGhyEGbCB8CIxa8nBogOxpkcdSSw5_RkWV0E";
-      const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
-
-      const response = await fetch(url);
-      const text = await response.text();
-      const jsonString = text.match(/(?<=.*\().*(?=\);)/s)[0];
-      const rawData = JSON.parse(jsonString);
-
-      let paketLokal = [];
-
-      rawData.table.rows.forEach(row => {
-          let c = row.c;
-          if(!c) return;
-
-          // Memastikan ada nomor paket di Kolom D (Indeks 3)
-          let rawNoPaket = c[3] ? (c[3].f || c[3].v) : null;
-          
-          if(rawNoPaket) {
-              // Menyusun Array utuh untuk Checker Tab
-              let dArr = [];
-              for(let i=0; i<=13; i++) {
-                 dArr.push(c[i] ? (c[i].f || c[i].v) : "-");
-              }
-
-              paketLokal.push({
-                  noPaket: rawNoPaket.toString(),
-                  nama: c[2] ? (c[2].f || c[2].v) : "",
-                  phone: c[4] ? (c[4].f || c[4].v).toString() : "",
-                  jenis: c[5] ? (c[5].f || c[5].v) : "",
-                  berat: c[6] ? (c[6].f || c[6].v) : "",
-                  bayar: parseFloat(c[8] ? (c[8].v || c[8].f) : 0) || 0,
-                  lokasiRak: c[10] ? (c[10].f || c[10].v) : "",
-                  tanggalAmbil: c[13] ? (c[13].f || c[13].v) : "-", // <-- OTOMATIS AMBIL KOLOM N
-                  statusAmbil: c[17] ? (c[17].f || c[17].v) : "Belum Diambil",
-                  detailArray: dArr
-              });
-          }
-      });
-
+    let res = await callAPI({ action: "sinkronisasiAwalLokal" });
+    if(res.success) {
       await db.paket.clear();
-      await db.paket.bulkAdd(paketLokal);
-      document.getElementById("infoSyncMaster").innerText = `✅ SUKSES! ${paketLokal.length} paket siap diakses OFFLINE.`;
+      await db.paket.bulkAdd(res.data);
+      document.getElementById("infoSyncMaster").innerText = `✅ SUKSES! ${res.data.length} paket siap diakses OFFLINE.`;
       updateBadge("🟢 DB Lokal Siap");
-
-    } catch (error) {
-      document.getElementById("infoSyncMaster").innerText = `❌ Gagal: Pastikan HP ada koneksi internet.`;
-      console.error(error);
+    } else {
+      document.getElementById("infoSyncMaster").innerText = `❌ Gagal: ${res.message}`;
     }
-
     btn.innerText = "1. Unduh Data Server ke HP";
     btn.disabled = false;
   }
@@ -905,31 +863,15 @@
       return;
     }
 
-    // 2. Kumpulkan paket berdasarkan Nomor HP dan Tanggal yang Sama
+    // 2. Kumpulkan paket
     let kumpulanPaket = [];
     if (targetPhone) {
         let targetNorm = normalisasiTelepon(targetPhone);
-        
-        // Ambil patokan tanggal dari paket yang di-scan pertama kali
-        let targetDate = null;
-        if (paketAwal) {
-            targetDate = paketAwal['Tanggal Ambil'] || paketAwal.tanggalAmbil || paketAwal.tanggal_ambil || (paketAwal.detailArray && paketAwal.detailArray[13] ? paketAwal.detailArray[13] : null);
-        }
-
         kumpulanPaket = allPaket.filter(p => {
            if(!p.phone) return false;
            let dbNorm = normalisasiTelepon(p.phone);
            let rawDb = p.phone.toString().replace(/[^0-9]/g, '');
-           let matchPhone = (dbNorm === targetNorm || rawDb === targetPhone);
-           
-           // Jika nomor HP cocok dan kita memiliki patokan tanggal dari paket awal
-           if (matchPhone && targetDate) {
-               let pDate = p['Tanggal Ambil'] || p.tanggalAmbil || p.tanggal_ambil || (p.detailArray && p.detailArray[13] ? p.detailArray[13] : null);
-               return pDate === targetDate;
-           }
-           
-           // Jika dicari pakai No HP secara manual (tanpa PIN), tidak akan mem-filter tanggal
-           return matchPhone;
+           return dbNorm === targetNorm || rawDb === targetPhone;
         });
     } else if (paketAwal) {
         kumpulanPaket = [paketAwal];
@@ -959,15 +901,7 @@
       let checkboxHtml = isTaken ? "✔️" : (isWrongLocation ? "🚫" : `<input type="checkbox" class="cb-kasir" value="${paket.noPaket}" data-harga="${paket.bayar}" checked onchange="hitungTotalKasir()">`);
       let trClass = isTaken ? "taken" : (isWrongLocation ? "warning-text" : "");
       let infoRak = paket.lokasiRak ? `<span style="color:#0056b3;">${paket.lokasiRak}</span>` : "-";
-      
-      // Ambil dari detailArray indeks 13 (yang mewakili Kolom N)
-      let tglAmbilMaster = (paket.detailArray && paket.detailArray[13]) ? paket.detailArray[13] : null;
-      let tglAmbil = paket['Tanggal Ambil'] || paket.tanggalAmbil || paket.tanggal_ambil || tglAmbilMaster || "-"; 
-      
-      // Opsional: Merapikan format tanggal jika ditarik dalam bentuk timestamp panjang
-      if (tglAmbil && typeof tglAmbil === 'string' && tglAmbil.length > 10 && tglAmbil.includes("T")) {
-         tglAmbil = tglAmbil.split("T")[0]; // Memotong menjadi format YYYY-MM-DD
-      }
+      let tglAmbil = paket['Tanggal Ambil'] || paket.tanggalAmbil || paket.tanggal_ambil || paket.tgl || paket.tanggal || "-"; 
       
       tbody.innerHTML += `<tr class="${trClass}">
         <td style="text-align:center;">${checkboxHtml}</td>
@@ -1038,13 +972,13 @@
     let cabangAktif = document.getElementById("lokasiKasirReadonly").value; 
 
     if(!tglPilihan) {
-       tbody.innerHTML = "<tr><td colspan='6' style='text-align:center;'>Silakan pastikan Tanggal terpilih di menu Checker.</td></tr>";
+       tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>Silakan pastikan Tanggal terpilih di menu Checker.</td></tr>";
        areaRekap.innerHTML = "";
        return;
     }
 
     // Menampilkan indikator loading
-    tbody.innerHTML = "<tr><td colspan='6' style='text-align:center;'>⏳ Sedang mensinkronkan data server...</td></tr>";
+    tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>⏳ Sedang mensinkronkan data server...</td></tr>";
 
     // Tarik langsung dari Spreadsheet ID Anda
     const sheetId = "1p6y2OYYyGhyEGbCB8CIxa8nBogOxpkcdSSw5_RkWV0E";
@@ -1072,11 +1006,11 @@
       if (idxBayar === -1) idxBayar = 18;   // Kolom S = 18
       if (idxCabang === -1) idxCabang = 19; // Kolom T = 19
       
-      // Indeks Pencarian dan Penyesuaian Kolom
-      let idxNoPaket = cols.findIndex(c => c.includes("no paket") || c.includes("resi")) !== -1 ? cols.findIndex(c => c.includes("no paket") || c.includes("resi")) : 3;
+     let idxNoPaket = cols.findIndex(c => c.includes("no paket") || c.includes("resi")) !== -1 ? cols.findIndex(c => c.includes("no paket") || c.includes("resi")) : 3;
       let idxTujuan = cols.findIndex(c => c.includes("tujuan") || c.includes("jenis")) !== -1 ? cols.findIndex(c => c.includes("tujuan") || c.includes("jenis")) : 5;
+      
+      // Baris lama yang mengandung kata "harga" DIHAPUS, cukup gunakan baris ini:
       let idxHarga = cols.findIndex(c => c.includes("bayar")) !== -1 ? cols.findIndex(c => c.includes("bayar")) : 8;
-      let idxTglAmbil = cols.findIndex(c => c.includes("tanggal ambil")) !== -1 ? cols.findIndex(c => c.includes("tanggal ambil")) : 13;
 
       let subtotals = { "Cash": 0, "Octopus": 0, "Alipay": 0, "Kartu Kredit": 0, "Kredit / Hutang": 0, "Lain-lain": 0 };
       let totalSemua = 0;
@@ -1103,10 +1037,8 @@
         let matchDate = possibleDates.some(pd => tglStr.includes(pd));
 
         if (isLunas && isCabangSesuai && matchDate && jenisBayar) {
-          
           let noPaket = c[idxNoPaket] ? (c[idxNoPaket].f || c[idxNoPaket].v) : "-";
           let tujuan = c[idxTujuan] ? (c[idxTujuan].f || c[idxTujuan].v) : "-";
-          let tglAmbilBarang = c[idxTglAmbil] ? (c[idxTglAmbil].f || c[idxTglAmbil].v) : "-"; 
           let hargaHKD = parseFloat(c[idxHarga] ? (c[idxHarga].v || c[idxHarga].f) : 0) || 0; // Ambil value raw
 
           // Kelompokkan metode pembayaran
@@ -1124,7 +1056,6 @@
           htmlTbody += `<tr>
               <td><b>${noPaket}</b></td>
               <td>${tujuan}</td>
-              <td>${tglAmbilBarang}</td>
               <td>HKD ${hargaHKD}</td>
               <td>${jenisBayar}</td>
               <td><span style="color:#10b981; font-weight:bold; font-size: 11px;">✅ Realtime</span></td>
@@ -1133,7 +1064,7 @@
       });
 
       if (htmlTbody === "") {
-        tbody.innerHTML = `<tr><td colspan='6' style='text-align:center;'>Belum ada pendapatan (Realtime) di tanggal ${tglPilihan}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan='5' style='text-align:center;'>Belum ada pendapatan (Realtime) di tanggal ${tglPilihan}</td></tr>`;
         areaRekap.innerHTML = ""; 
       } else {
         tbody.innerHTML = htmlTbody;
@@ -1150,7 +1081,7 @@
 
     } catch (error) {
       console.error(error);
-      tbody.innerHTML = `<tr><td colspan='6' style='text-align:center; color:red;'><b>Gagal mengambil data Realtime.</b><br>Pastikan Spreadsheet Anda memiliki akses: <b>"Siapa saja yang memiliki link dapat melihat"</b></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan='5' style='text-align:center; color:red;'><b>Gagal mengambil data Realtime.</b><br>Pastikan Spreadsheet Anda memiliki akses: <b>"Siapa saja yang memiliki link dapat melihat"</b></td></tr>`;
     }
   }
 
@@ -1205,4 +1136,4 @@
   setInterval(prosesAntreanLatarBelakang, 5000); 
 </script>
 </body>
-</html>
+</html> 
