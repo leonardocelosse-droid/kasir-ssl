@@ -247,7 +247,6 @@
             <div id="areaRekapKasir"></div>
             <div style="overflow-x:auto;">
               <table class="kasir-table">
-                <!-- Penambahan header Tgl Ambil -->
                 <thead><tr><th>No Paket</th><th>Jenis</th><th>Tgl Ambil</th><th>Harga</th><th>Metode</th><th>AKSI</th></tr></thead>
                 <tbody id="tbodyLaporanKasir"></tbody>
               </table>
@@ -457,22 +456,64 @@
   }
 
   // ==========================================
-  // 3. LOGIKA SYNC LOKAL (PAGI HARI)
+  // 3. LOGIKA SYNC LOKAL (BYPASS CODE.GS - AMBIL LANGSUNG DARI SHEET)
   // ==========================================
   async function tarikDataMasterLokal() {
     let btn = document.getElementById("btnSyncMaster");
-    btn.innerText = "Mengunduh Database... Jangan Tutup Aplikasi";
+    btn.innerText = "Mengunduh Database Langsung... Jangan Tutup";
     btn.disabled = true;
     
-    let res = await callAPI({ action: "sinkronisasiAwalLokal" });
-    if(res.success) {
+    try {
+      // Menggunakan jalur langsung ke Spreadsheet (Bypass Code.gs)
+      const sheetId = "1p6y2OYYyGhyEGbCB8CIxa8nBogOxpkcdSSw5_RkWV0E";
+      const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
+
+      const response = await fetch(url);
+      const text = await response.text();
+      const jsonString = text.match(/(?<=.*\().*(?=\);)/s)[0];
+      const rawData = JSON.parse(jsonString);
+
+      let paketLokal = [];
+
+      rawData.table.rows.forEach(row => {
+          let c = row.c;
+          if(!c) return;
+
+          // Memastikan ada nomor paket di Kolom D (Indeks 3)
+          let rawNoPaket = c[3] ? (c[3].f || c[3].v) : null;
+          
+          if(rawNoPaket) {
+              // Menyusun Array utuh untuk Checker Tab
+              let dArr = [];
+              for(let i=0; i<=13; i++) {
+                 dArr.push(c[i] ? (c[i].f || c[i].v) : "-");
+              }
+
+              paketLokal.push({
+                  noPaket: rawNoPaket.toString(),
+                  nama: c[2] ? (c[2].f || c[2].v) : "",
+                  phone: c[4] ? (c[4].f || c[4].v).toString() : "",
+                  jenis: c[5] ? (c[5].f || c[5].v) : "",
+                  berat: c[6] ? (c[6].f || c[6].v) : "",
+                  bayar: parseFloat(c[8] ? (c[8].v || c[8].f) : 0) || 0,
+                  lokasiRak: c[10] ? (c[10].f || c[10].v) : "",
+                  tanggalAmbil: c[13] ? (c[13].f || c[13].v) : "-", // <-- OTOMATIS AMBIL KOLOM N
+                  statusAmbil: c[17] ? (c[17].f || c[17].v) : "Belum Diambil",
+                  detailArray: dArr
+              });
+          }
+      });
+
       await db.paket.clear();
-      await db.paket.bulkAdd(res.data);
-      document.getElementById("infoSyncMaster").innerText = `✅ SUKSES! ${res.data.length} paket siap diakses OFFLINE.`;
+      await db.paket.bulkAdd(paketLokal);
+      document.getElementById("infoSyncMaster").innerText = `✅ SUKSES! ${paketLokal.length} paket siap diakses OFFLINE.`;
       updateBadge("🟢 DB Lokal Siap");
-    } else {
-      document.getElementById("infoSyncMaster").innerText = `❌ Gagal: ${res.message}`;
+
+    } catch (error) {
+      document.getElementById("infoSyncMaster").innerText = `❌ Gagal: Pastikan HP ada koneksi internet.`;
+      console.error(error);
     }
+
     btn.innerText = "1. Unduh Data Server ke HP";
     btn.disabled = false;
   }
@@ -899,7 +940,7 @@
       if (isWrongLocation && !isTaken) adaSalahCabang = true;
       if (!isTaken && !isWrongLocation) adaBelumDiambil = true;
 
-     let checkboxHtml = isTaken ? "✔️" : (isWrongLocation ? "🚫" : `<input type="checkbox" class="cb-kasir" value="${paket.noPaket}" data-harga="${paket.bayar}" checked onchange="hitungTotalKasir()">`);
+      let checkboxHtml = isTaken ? "✔️" : (isWrongLocation ? "🚫" : `<input type="checkbox" class="cb-kasir" value="${paket.noPaket}" data-harga="${paket.bayar}" checked onchange="hitungTotalKasir()">`);
       let trClass = isTaken ? "taken" : (isWrongLocation ? "warning-text" : "");
       let infoRak = paket.lokasiRak ? `<span style="color:#0056b3;">${paket.lokasiRak}</span>` : "-";
       
@@ -908,7 +949,7 @@
       let tglAmbil = paket['Tanggal Ambil'] || paket.tanggalAmbil || paket.tanggal_ambil || tglAmbilMaster || "-"; 
       
       // Opsional: Merapikan format tanggal jika ditarik dalam bentuk timestamp panjang
-      if (tglAmbil && tglAmbil.length > 10 && tglAmbil.includes("T")) {
+      if (tglAmbil && typeof tglAmbil === 'string' && tglAmbil.length > 10 && tglAmbil.includes("T")) {
          tglAmbil = tglAmbil.split("T")[0]; // Memotong menjadi format YYYY-MM-DD
       }
       
