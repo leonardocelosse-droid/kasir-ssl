@@ -297,9 +297,9 @@
   // ==========================================
   // 1. INISIALISASI INDEXED-DB & VARIABEL GLOBAL
   // ==========================================
-  // PERBARUAN: Menambahkan kolom agen dan tanggalAmbil di struktur DB
+  // Note: Schema Dexie tidak diubah dari aslinya, membiarkan properti dinamis (agen, tgl, dll) masuk begitu saja
   const db = new Dexie("SSLExpressDB");
-  db.version(1).stores({ paket: 'noPaket, phone, nama, agen, jenis, statusAmbil, berat, bayar, lokasiRak, tanggalAmbil', antrean: '++id, type, status' });
+  db.version(1).stores({ paket: 'noPaket, phone, nama, jenis, statusAmbil, berat, bayar', antrean: '++id, type, status' });
   let memoriScanLokal = [];
   
   let qrScanner = null;
@@ -672,7 +672,7 @@
     let detailArr = ["-", "-", "-", finalPin, "-", "-", "-", "-", "-", "-", "-"];
     
     if(paket) {
-      tujuanMaster = paket.jenis || "-";
+      tujuanMaster = paket.jenis || paket.detailArray?.[5] || "-";
       detailArr = paket.detailArray || detailArr;
       let tLower = tujuanMaster.toLowerCase();
       let cLower = cabangAktif.toLowerCase();
@@ -839,7 +839,6 @@
     let targetPhone = "";
     let namaKustomer = "";
 
-    // 1. Cari target phone berdasarkan input
     let paketAwal = await db.paket.get(input);
     if (paketAwal) {
       targetPhone = normalisasiTelepon(paketAwal.phone) || (paketAwal.phone ? paketAwal.phone.toString() : "");
@@ -864,7 +863,6 @@
       return;
     }
 
-    // 2. Kumpulkan paket
     let kumpulanPaket = [];
     if (targetPhone) {
         let targetNorm = normalisasiTelepon(targetPhone);
@@ -885,10 +883,9 @@
     let adaSalahCabang = false;
     let adaBelumDiambil = false;
 
-    // 3. Render baris
     kumpulanPaket.forEach(paket => {
       let isTaken = paket.statusAmbil === "Sudah Diambil";
-      let tujuanLower = (paket.jenis||"").toLowerCase();
+      let tujuanLower = (paket.jenis || paket.detailArray?.[5] || "").toLowerCase();
       let isBenar = false;
       if (cabangAktif.includes("cwb") && (tujuanLower.includes("cwb") || tujuanLower.includes("causeway bay"))) isBenar = true;
       else if (cabangAktif.includes("ssp") && (tujuanLower.includes("ssp") || tujuanLower.includes("sham shui po"))) isBenar = true;
@@ -903,14 +900,17 @@
       let trClass = isTaken ? "taken" : (isWrongLocation ? "warning-text" : "");
       
       let infoRak = paket.lokasiRak ? `<span style="color:#0056b3;">${paket.lokasiRak}</span>` : "-";
-      let agen = paket.agen || "-";
-      let tglAmbil = paket.tanggalAmbil || "-"; 
+      
+      // Mengantisipasi penamaan variable dari Google Script Anda yang lama
+      let agen = paket.agen || paket.detailArray?.[4] || "-";
+      let tglAmbil = paket.tanggalAmbil || paket['Tanggal Ambil'] || paket.tanggal_ambil || paket.tgl_ambil || "-"; 
+      let jenisTujuan = paket.jenis || paket.detailArray?.[5] || "-";
       
       tbody.innerHTML += `<tr class="${trClass}">
         <td style="text-align:center;">${checkboxHtml}</td>
         <td><b>${paket.noPaket}</b></td>
         <td>${agen}</td>
-        <td>${paket.jenis || "-"}</td>
+        <td>${jenisTujuan}</td>
         <td><b>${tglAmbil}</b></td>
         <td><b>${infoRak}</b></td>
         <td>${paket.berat || "-"}</td>
@@ -983,7 +983,10 @@
         let jenis = p.jenisBayar || "Lain-lain";
         if (subtotals[jenis] !== undefined) { subtotals[jenis] += hargaHKD; } else { subtotals["Lain-lain"] += hargaHKD; }
         totalSemua += hargaHKD;
-        tbody.innerHTML += `<tr><td><b>${p.noPaket}</b></td><td>${p.jenis}</td><td>HKD ${hargaHKD}</td><td>${jenis}</td><td><button onclick="batalBayarKasir('${p.noPaket}', this)" class="btn-hapus">❌ Batal</button></td></tr>`;
+        
+        let jenisTujuan = p.jenis || p.detailArray?.[5] || "-";
+        
+        tbody.innerHTML += `<tr><td><b>${p.noPaket}</b></td><td>${jenisTujuan}</td><td>HKD ${hargaHKD}</td><td>${jenis}</td><td><button onclick="batalBayarKasir('${p.noPaket}', this)" class="btn-hapus">❌ Batal</button></td></tr>`;
       });
       areaRekap.innerHTML = `
         <div style="background:#e9ecef; padding:20px; border-radius:10px; margin-bottom:20px; border:1px solid #ccc; display:flex; flex-wrap:wrap; justify-content:space-between; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
