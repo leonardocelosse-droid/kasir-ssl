@@ -433,7 +433,7 @@
     } else if(tab === 'laporan') {
       document.getElementById('viewLaporan').classList.remove('hidden');
       document.getElementById('navLaporan').classList.add('active');
-      muatLaporanKasirLokal(); // Panggil saat pindah ke menu Laporan (Cetak)
+      autoTarikDataLaporan(); // SEKARANG: Otomatis sync saat mau cetak
     } else {
       document.getElementById('viewSync').classList.remove('hidden');
       document.getElementById('navSync').classList.add('active');
@@ -451,7 +451,7 @@
     } else {
       document.getElementById('kasirLaporanArea').classList.remove('hidden');
       document.getElementById('tabLaporan').classList.add('active');
-      muatLaporanKasirLokal(); // Panggil saat klik sub-tab Laporan Harian
+      autoTarikDataLaporan(); // SEKARANG: Tarik data server dulu, baru tampilkan
     }
   }
 
@@ -1093,6 +1093,37 @@
   }
 
   // ==========================================
+  // FUNGSI AUTO-SYNC SAAT BUKA LAPORAN
+  // ==========================================
+  async function autoTarikDataLaporan() {
+    let tbody = document.getElementById("tbodyLaporanKasir");
+    let areaRekap = document.getElementById("areaRekapKasir");
+    
+    // Tampilkan indikator loading ke pengguna
+    areaRekap.innerHTML = "";
+    tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>⏳ Sedang menarik data terbaru dari server...</td></tr>";
+
+    // Cek koneksi internet sebelum memanggil API
+    if (navigator.onLine) {
+      try {
+        let res = await callAPI({ action: "sinkronisasiAwalLokal" });
+        if (res.success) {
+          // Perbarui database lokal dengan data terbaru
+          await db.paket.clear();
+          await db.paket.bulkAdd(res.data);
+        }
+      } catch (error) {
+        console.warn("Gagal auto-sync API, beralih ke data lokal:", error);
+      }
+    } else {
+      tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>⚠️ Anda sedang offline. Menampilkan data lokal yang ada.</td></tr>";
+    }
+
+    // Setelah proses tarik data selesai, muat data ke layar
+    muatLaporanKasirLokal();
+  }
+
+  // ==========================================
   // BACKGROUND SYNC ENGINE API
   // ==========================================
   let isSyncing = false;
@@ -1121,4 +1152,4 @@
   setInterval(prosesAntreanLatarBelakang, 5000); 
 </script>
 </body>
-</html> 
+</html>
