@@ -1006,9 +1006,11 @@
       if (idxBayar === -1) idxBayar = 18;   // Kolom S = 18
       if (idxCabang === -1) idxCabang = 19; // Kolom T = 19
       
-      let idxNoPaket = cols.findIndex(c => c.includes("no paket") || c.includes("resi")) !== -1 ? cols.findIndex(c => c.includes("no paket") || c.includes("resi")) : 3;
+     let idxNoPaket = cols.findIndex(c => c.includes("no paket") || c.includes("resi")) !== -1 ? cols.findIndex(c => c.includes("no paket") || c.includes("resi")) : 3;
       let idxTujuan = cols.findIndex(c => c.includes("tujuan") || c.includes("jenis")) !== -1 ? cols.findIndex(c => c.includes("tujuan") || c.includes("jenis")) : 5;
-      let idxHarga = cols.findIndex(c => c.includes("harga") || c.includes("bayar")) !== -1 ? cols.findIndex(c => c.includes("harga") || c.includes("bayar")) : 7;
+      
+      // Baris lama yang mengandung kata "harga" DIHAPUS, cukup gunakan baris ini:
+      let idxHarga = cols.findIndex(c => c.includes("bayar")) !== -1 ? cols.findIndex(c => c.includes("bayar")) : 8;
 
       let subtotals = { "Cash": 0, "Octopus": 0, "Alipay": 0, "Kartu Kredit": 0, "Kredit / Hutang": 0, "Lain-lain": 0 };
       let totalSemua = 0;
