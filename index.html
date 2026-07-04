@@ -530,10 +530,12 @@
   // ==========================================
   // 5. LOGIKA HAPUS / BATAL DATA
   // ==========================================
-  async function hapusHistoriChecker(pin) {
+  async function hapusHistoriChecker(pin, btn) {
     if (!confirm(`Hapus histori scan paket ${pin}?`)) return;
 
-    // 1. Hapus antrean jika belum terkirim
+    if(btn) { btn.innerText = "⏳ Proses..."; btn.disabled = true; }
+
+    // 1. Hapus dari antrean jika belum sempat terkirim
     let pendingScans = await db.antrean.where('status').equals('pending').toArray();
     for (let p of pendingScans) {
       if (p.type === 'CHECKER_SCAN' && p.payload.noPaket.toString() === pin.toString()) {
@@ -541,25 +543,36 @@
       }
     }
 
-    // 2. Lepaskan kunci lokal
+    // 2. Lepaskan kunci lokal agar nomor bisa di-scan ulang jika perlu
     memoriScanLokal = memoriScanLokal.filter(p => p !== pin.toString());
 
-    // 3. Info ke server
+    // 3. Masukkan ke BLACKLIST LOKAL (Agar langsung hilang di layar walau di server belum terhapus)
+    let blacklist = JSON.parse(localStorage.getItem("blacklistChecker") || "[]");
+    if(!blacklist.includes(pin.toString())) {
+        blacklist.push(pin.toString());
+        localStorage.setItem("blacklistChecker", JSON.stringify(blacklist));
+    }
+
+    // 4. Info ke server (tambahkan await agar sinkron dengan Google Sheets)
     let cabangAktif = localStorage.getItem("sesiCabangSSL");
     let tgl = document.getElementById("inputTanggalPilihan").value;
-    callAPI({ action: "hapusHistoriChecker", noPaket: pin, cabang: cabangAktif, tanggalStr: tgl });
+    try {
+        await callAPI({ action: "hapusHistoriChecker", noPaket: pin, cabang: cabangAktif, tanggalStr: tgl });
+    } catch(e) {}
 
-    // 4. Update Layar
+    // 5. Update Layar
     muatLaporanTanggalLayar();
   }
 
-  async function batalBayarKasir(pin) {
+  async function batalBayarKasir(pin, btn) {
     if (!confirm(`Batalkan pembayaran untuk paket ${pin}?`)) return;
 
-    // 1. Kembalikan status paket di master data lokal ke kosong
+    if(btn) { btn.innerText = "⏳ Batal..."; btn.disabled = true; }
+
+    // Kembalikan status lokal menjadi kosong
     await db.paket.update(pin.toString(), { statusAmbil: "", jenisBayar: "" });
 
-    // 2. Hapus antrean jika belum terkirim
+    // Hapus dari antrean sync
     let pendingScans = await db.antrean.where('status').equals('pending').toArray();
     for (let p of pendingScans) {
       if (p.type === 'KASIR_BAYAR' && p.payload.noPaket.toString() === pin.toString()) {
@@ -567,11 +580,12 @@
       }
     }
 
-    // 3. Beritahu server
+    // Info ke server API
     let cabangAktif = document.getElementById("lokasiKasirReadonly").value;
-    callAPI({ action: "batalBayarKasir", noPaket: pin, cabang: cabangAktif });
+    try {
+        await callAPI({ action: "batalBayarKasir", noPaket: pin, cabang: cabangAktif });
+    } catch(e) {}
 
-    // 4. Update layar kasir
     muatLaporanKasirLokal();
   }
 
@@ -600,6 +614,13 @@
     }
 
     let finalPin = paket ? paket.noPaket : input;
+
+    // Jika nomor ini pernah dihapus hari ini, lepaskan dari blacklist agar bisa discan ulang
+    let blacklist = JSON.parse(localStorage.getItem("blacklistChecker") || "[]");
+    if(blacklist.includes(finalPin.toString())) {
+       let newBl = blacklist.filter(b => b !== finalPin.toString());
+       localStorage.setItem("blacklistChecker", JSON.stringify(newBl));
+    }
 
     if (memoriScanLokal.includes(finalPin.toString())) {
       playTetot();
@@ -667,7 +688,7 @@
         trHtml += `<td>${val}</td>`;
     }
     trHtml += `<td><span class='badge ${badgeClass}'>${statusScan}</span></td>`;
-    trHtml += `<td><button onclick="hapusHistoriChecker('${finalPin}')" class="btn-hapus">❌ Hapus</button></td></tr>`;
+    trHtml += `<td><button onclick="hapusHistoriChecker('${finalPin}', this)" class="btn-hapus">❌ Hapus</button></td></tr>`;
     tbody.insertAdjacentHTML('afterbegin', trHtml);
   }
 
@@ -684,6 +705,7 @@
     let htmlBuffer = "";
     memoriScanLokal = []; 
     let processedPins = new Set(); 
+    let blacklist = JSON.parse(localStorage.getItem("blacklistChecker") || "[]");
 
     try {
       let res = await callAPI({ action: "fetchLaporanByTanggal", cabang: cabang, tanggalStr: tgl });
@@ -698,6 +720,7 @@
       for (let h of histori.reverse()) {
         let pinStr = h.dataScan.toString();
         if (processedPins.has(pinStr)) continue; 
+        if (blacklist.includes(pinStr)) continue; // Abaikan PIN yang ada di blacklist hapus
         
         processedPins.add(pinStr);
         memoriScanLokal.push(pinStr);
@@ -712,7 +735,7 @@
             trHtml += `<td>${val}</td>`;
         }
         trHtml += `<td><span class='badge ${badgeClass}'>${h.status}</span></td>`;
-        trHtml += `<td><button onclick="hapusHistoriChecker('${pinStr}')" class="btn-hapus">❌ Hapus</button></td></tr>`;
+        trHtml += `<td><button onclick="hapusHistoriChecker('${pinStr}', this)" class="btn-hapus">❌ Hapus</button></td></tr>`;
         htmlBuffer += trHtml;
       }
 
@@ -721,6 +744,7 @@
         if (p.type === 'CHECKER_SCAN') {
           let pinStr = p.payload.noPaket.toString();
           if (processedPins.has(pinStr)) continue; 
+          if (blacklist.includes(pinStr)) continue; // Abaikan PIN yang ada di blacklist hapus
           
           processedPins.add(pinStr);
           memoriScanLokal.push(pinStr);
@@ -735,14 +759,14 @@
               trHtml += `<td>${val}</td>`;
           }
           trHtml += `<td><span class='badge ${badgeClass}'>${p.payload.status} (Menunggu)</span></td>`;
-          trHtml += `<td><button onclick="hapusHistoriChecker('${pinStr}')" class="btn-hapus">❌ Hapus</button></td></tr>`;
+          trHtml += `<td><button onclick="hapusHistoriChecker('${pinStr}', this)" class="btn-hapus">❌ Hapus</button></td></tr>`;
           
           htmlBuffer = trHtml + htmlBuffer; 
         }
       }
 
       tbody.innerHTML = htmlBuffer;
-      if(processedPins.size === 0) tbody.innerHTML = "<tr><td colspan='12' style='text-align:center;'>Belum ada histori scan pada tanggal ini.</td></tr>";
+      if(processedPins.size === 0 || htmlBuffer === "") tbody.innerHTML = "<tr><td colspan='12' style='text-align:center;'>Belum ada histori scan pada tanggal ini.</td></tr>";
     
     } catch (error) {
       tbody.innerHTML = `<tr><td colspan='12' style='text-align:center; color:red;'>Gagal menyusun tabel: ${error.message}</td></tr>`;
@@ -912,7 +936,7 @@
         let jenis = p.jenisBayar || "Lain-lain";
         if (subtotals[jenis] !== undefined) { subtotals[jenis] += hargaHKD; } else { subtotals["Lain-lain"] += hargaHKD; }
         totalSemua += hargaHKD;
-        tbody.innerHTML += `<tr><td><b>${p.noPaket}</b></td><td>${p.jenis}</td><td>HKD ${hargaHKD}</td><td>${jenis}</td><td><button onclick="batalBayarKasir('${p.noPaket}')" class="btn-hapus">❌ Batal</button></td></tr>`;
+        tbody.innerHTML += `<tr><td><b>${p.noPaket}</b></td><td>${p.jenis}</td><td>HKD ${hargaHKD}</td><td>${jenis}</td><td><button onclick="batalBayarKasir('${p.noPaket}', this)" class="btn-hapus">❌ Batal</button></td></tr>`;
       });
       areaRekap.innerHTML = `
         <div style="background:#e9ecef; padding:20px; border-radius:10px; margin-bottom:20px; border:1px solid #ccc; display:flex; flex-wrap:wrap; justify-content:space-between; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
