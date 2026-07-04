@@ -433,7 +433,7 @@
     } else if(tab === 'laporan') {
       document.getElementById('viewLaporan').classList.remove('hidden');
       document.getElementById('navLaporan').classList.add('active');
-      autoTarikDataLaporan(); // SEKARANG: Otomatis sync saat mau cetak
+      autoTarikDataLaporan(); // Auto Sync
     } else {
       document.getElementById('viewSync').classList.remove('hidden');
       document.getElementById('navSync').classList.add('active');
@@ -451,7 +451,7 @@
     } else {
       document.getElementById('kasirLaporanArea').classList.remove('hidden');
       document.getElementById('tabLaporan').classList.add('active');
-      autoTarikDataLaporan(); // SEKARANG: Tarik data server dulu, baru tampilkan
+      autoTarikDataLaporan(); // Auto Sync
     }
   }
 
@@ -976,7 +976,7 @@
   }
 
   // ==========================================
-  // PERBARUAN: LAPORAN HARIAN LEBIH CERDAS DENGAN FILTER TANGGAL SAPU JAGAT
+  // PERBARUAN: SOLUSI ZONA WAKTU & BYPASS FILTER SEMENTARA
   // ==========================================
   async function muatLaporanKasirLokal() {
     let data = await db.paket.toArray();
@@ -994,12 +994,6 @@
     tbody.innerHTML = "";
     
     let lunasData = data.filter(p => {
-        let status = p.statusAmbil || (p.detailArray && p.detailArray.length > 17 ? p.detailArray[17] : "");
-        let isLunas = status.toString().toLowerCase().includes("ambil") || status.toString().toLowerCase().includes("lunas");
-        
-        let metode = p.jenisBayar || (p.detailArray && p.detailArray.length > 18 ? p.detailArray[18] : "");
-        let hasMetode = metode && metode.toString().trim() !== "";
-        
         let tgl = p.tanggalAmbil || p['Tanggal Ambil'] || (p.detailArray && p.detailArray.length > 16 ? p.detailArray[16] : "");
         
         let matchDate = false;
@@ -1009,18 +1003,21 @@
             let tStr = tgl.toString().trim();
             // Pecah kalender HP "2026-07-04"
             let [y, m, d] = tglPilihan.split("-");
-            let dInt = parseInt(d).toString(); // "4"
-            let mInt = parseInt(m).toString(); // "7"
+            let dInt = parseInt(d).toString(); 
+            let mInt = parseInt(m).toString(); 
             
-            // Jaring pengaman semua format tanggal yg mungkin dikirim dari Google Sheet
+            // SOLUSI BUG ZONA WAKTU
+            if (tStr.includes("T")) {
+                let dObj = new Date(tStr); 
+                if (dObj.getFullYear() == y && (dObj.getMonth() + 1) == mInt && dObj.getDate() == dInt) {
+                    matchDate = true;
+                }
+            }
+            
             let possibleDates = [
-                tglPilihan,               // "2026-07-04"
-                `${dInt}/${mInt}/${y}`,   // "4/7/2026"
-                `${mInt}/${dInt}/${y}`,   // "7/4/2026" (Format US Google Sheet)
-                `${dInt}-${mInt}-${y}`,   // "4-7-2026"
-                `${mInt}-${dInt}-${y}`,   // "7-4-2026"
-                `${d}/${m}/${y}`,         // "04/07/2026"
-                `${m}/${d}/${y}`          // "07/04/2026"
+                tglPilihan, `${dInt}/${mInt}/${y}`, `${mInt}/${dInt}/${y}`, 
+                `${dInt}-${mInt}-${y}`, `${mInt}-${dInt}-${y}`, 
+                `${d}/${m}/${y}`, `${m}/${d}/${y}`
             ];
             
             if (possibleDates.some(pd => tStr.includes(pd))) {
@@ -1028,7 +1025,8 @@
             }
         }
         
-        return isLunas && hasMetode && matchDate;
+        // MODE BYPASS: Hanya filter tanggal (Abaikan syarat Lunas/Metode)
+        return matchDate; 
     });
     
     if(lunasData.length === 0) {
@@ -1078,7 +1076,6 @@
     let printTglKasirElem = document.getElementById("printTglKasir");
     if(printTglKasirElem) printTglKasirElem.innerText = tglPilihan;
 
-    // Pastikan UI pada posisi Sub-Tab Laporan
     document.getElementById('kasirAmbilArea').classList.add('hidden');
     document.getElementById('kasirLaporanArea').classList.remove('hidden');
 
@@ -1093,13 +1090,12 @@
   }
 
   // ==========================================
-  // FUNGSI AUTO-SYNC SAAT BUKA LAPORAN (DIPERBAIKI)
+  // FUNGSI AUTO-SYNC SAAT BUKA LAPORAN & BACKUP LOKAL
   // ==========================================
   async function autoTarikDataLaporan() {
     let tbody = document.getElementById("tbodyLaporanKasir");
     let areaRekap = document.getElementById("areaRekapKasir");
     
-    // Tampilkan indikator loading ke pengguna
     areaRekap.innerHTML = "";
     tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>⏳ Sedang mensinkronkan data server...</td></tr>";
 
@@ -1107,15 +1103,12 @@
       try {
         let res = await callAPI({ action: "sinkronisasiAwalLokal" });
         if (res.success) {
-          // 1. BACKUP data transaksi kasir lokal yang barusan dibayar (belum utuh di server)
           let semuaDataLokal = await db.paket.toArray();
           let backupLokal = semuaDataLokal.filter(p => p.baruSajaDibayarLokal === true);
 
-          // 2. Bersihkan DB lokal & Timpa dengan data master server terbaru
           await db.paket.clear();
           await db.paket.bulkAdd(res.data);
 
-          // 3. KEMBALIKAN (Merge) data lokal yang sudah dibayar agar tidak hilang dari layar
           if (backupLokal.length > 0) {
             await db.paket.bulkPut(backupLokal);
           }
@@ -1127,14 +1120,12 @@
       tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>⚠️ Anda sedang offline. Menampilkan data lokal yang ada.</td></tr>";
     }
 
-    // Perbaikan Bug Visual: Mengisi teks Cabang yang kosong pada header Laporan
     let cabangAktif = localStorage.getItem("sesiCabangSSL") || "";
     let teksCabangPrint = document.getElementById("printCabangKasir");
     if (teksCabangPrint) {
         teksCabangPrint.innerText = cabangAktif.toUpperCase();
     }
 
-    // 4. Muat ulang tabel berdasarkan data yang sudah digabungkan secara presisi
     muatLaporanKasirLokal();
   }
 
@@ -1167,4 +1158,4 @@
   setInterval(prosesAntreanLatarBelakang, 5000); 
 </script>
 </body>
-</html> 
+</html>
