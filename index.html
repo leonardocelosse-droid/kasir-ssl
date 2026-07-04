@@ -690,15 +690,7 @@
       alertBox.className = "alert alert-salah";
       alertBox.style.backgroundColor = "#fee2e2";
       alertBox.style.color = "#991b1b";
-      
-      let agenDuplikat = paket && paket.detailArray ? (paket.detailArray[4] || "-") : "-";
-      
-      alertBox.innerHTML = `
-        🛑 <b>DUPLIKAT</b><br>Paket/No HP <b>${inputRaw}</b> (PIN: ${finalPin}) sudah ter-scan hari ini!
-        <div style="margin-top: 12px;">
-          <button onclick="cetakLabelThermal('${finalPin}', '${agenDuplikat}')" style="background:#3b82f6; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; font-size:14px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1);">🖨️ Print Ulang Label</button>
-        </div>
-      `;
+      alertBox.innerHTML = `🛑 <b>DUPLIKAT</b><br>Paket/No HP <b>${inputRaw}</b> (PIN: ${finalPin}) sudah ter-scan hari ini!`;
       return;
     }
 
@@ -707,15 +699,7 @@
       alertBox.className = "alert alert-salah";
       alertBox.style.backgroundColor = "#fee2e2";
       alertBox.style.color = "#991b1b";
-      
-      let agenDiambil = paket && paket.detailArray ? (paket.detailArray[4] || "-") : "-";
-      
-      alertBox.innerHTML = `
-        🛑 <b>INVALID (SUDAH DIAMBIL)</b><br>Paket <b>${finalPin}</b> sudah tercatat diserahkan ke kustomer di Master Data. Fisik paket seharusnya tidak ada!
-        <div style="margin-top: 12px;">
-          <button onclick="cetakLabelThermal('${finalPin}', '${agenDiambil}')" style="background:#3b82f6; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; font-size:14px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1);">🖨️ Tetap Print Label</button>
-        </div>
-      `;
+      alertBox.innerHTML = `🛑 <b>INVALID (SUDAH DIAMBIL)</b><br>Paket <b>${finalPin}</b> sudah tercatat diserahkan ke kustomer di Master Data. Fisik paket seharusnya tidak ada!`;
       return;
     }
 
@@ -774,10 +758,7 @@
     }
     trHtml += `<td><b>${rakTerpilih || "-"}</b></td>`;
     trHtml += `<td><span class='badge ${badgeClass}'>${statusScan}</span></td>`;
-    trHtml += `<td>
-      <button onclick="cetakLabelThermal('${finalPin}', '${detailArr[4] || "-"}')" style="background:#3b82f6; color:white; border:none; padding:6px; border-radius:6px; cursor:pointer; font-size:11px; margin-bottom:4px; font-weight:bold; width:100%;">🖨️ Label</button>
-      <button onclick="hapusHistoriChecker('${finalPin}', this)" class="btn-hapus" style="width:100%;">❌ Hapus</button>
-    </td></tr>`;
+    trHtml += `<td><button onclick="hapusHistoriChecker('${finalPin}', this)" class="btn-hapus">❌ Hapus</button></td></tr>`;
     tbody.insertAdjacentHTML('afterbegin', trHtml);
   }
 
@@ -828,10 +809,7 @@
         trHtml += `<td><b>${infoRak}</b></td>`;
 
         trHtml += `<td><span class='badge ${badgeClass}'>${h.status}</span></td>`;
-        trHtml += `<td>
-          <button onclick="cetakLabelThermal('${pinStr}', '${dArr[4] || "-"}')" style="background:#3b82f6; color:white; border:none; padding:6px; border-radius:6px; cursor:pointer; font-size:11px; margin-bottom:4px; font-weight:bold; width:100%;">🖨️ Label</button>
-          <button onclick="hapusHistoriChecker('${pinStr}', this)" class="btn-hapus" style="width:100%;">❌ Hapus</button>
-        </td></tr>`;
+        trHtml += `<td><button onclick="hapusHistoriChecker('${pinStr}', this)" class="btn-hapus">❌ Hapus</button></td></tr>`;
         htmlBuffer += trHtml;
       }
 
@@ -859,10 +837,7 @@
           trHtml += `<td><b>${infoRak}</b></td>`;
 
           trHtml += `<td><span class='badge ${badgeClass}'>${p.payload.status} (Menunggu)</span></td>`;
-          trHtml += `<td>
-            <button onclick="cetakLabelThermal('${pinStr}', '${dArr[4] || "-"}')" style="background:#3b82f6; color:white; border:none; padding:6px; border-radius:6px; cursor:pointer; font-size:11px; margin-bottom:4px; font-weight:bold; width:100%;">🖨️ Label</button>
-            <button onclick="hapusHistoriChecker('${pinStr}', this)" class="btn-hapus" style="width:100%;">❌ Hapus</button>
-          </td></tr>`;
+          trHtml += `<td><button onclick="hapusHistoriChecker('${pinStr}', this)" class="btn-hapus">❌ Hapus</button></td></tr>`;
           
           htmlBuffer = trHtml + htmlBuffer; 
         }
@@ -1183,84 +1158,6 @@
         document.body.classList.remove('print-mode-kasir');
       }, 500);
     }, 300);
-  }
-
-  // ==========================================
-  // LOGIKA CETAK LABEL THERMAL 80x60 (TEKS SAJA)
-  // ==========================================
-  function cetakLabelThermal(noPaket, agen) {
-    // Membuka jendela print baru khusus untuk ukuran 80x60mm
-    let printWindow = window.open('', '_blank', 'width=400,height=300');
-    
-    // Menulis kerangka HTML khusus label teks
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Print Label ${noPaket}</title>
-        <style>
-          @page { 
-            size: 80mm 60mm; 
-            margin: 0; 
-          }
-          body { 
-            font-family: 'Arial', sans-serif; 
-            margin: 0; 
-            padding: 5mm; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: center; 
-            align-items: center;
-            text-align: center;
-            width: 100%;
-            height: 100vh;
-            box-sizing: border-box;
-            background-color: white;
-            color: black;
-          }
-          .label-title {
-            font-size: 16px;
-            color: #444;
-            margin-bottom: 4px;
-            font-weight: normal;
-          }
-          .agen-text {
-            font-size: 34px; 
-            font-weight: bold;
-            text-transform: uppercase;
-            margin-bottom: 12px;
-            word-wrap: break-word;
-            line-height: 1.1;
-          }
-          .paket-text {
-            font-size: 42px; 
-            font-weight: 900;
-            letter-spacing: 2px;
-            word-wrap: break-word;
-            line-height: 1.1;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="label-title">AGEN / TUJUAN:</div>
-        <div class="agen-text">${agen || "-"}</div>
-        
-        <div class="label-title">NOMOR PAKET / PIN:</div>
-        <div class="paket-text">${noPaket || "-"}</div>
-
-        <script>
-          window.onload = function() {
-            // Jeda sangat singkat lalu otomatis print dan tutup tab
-            setTimeout(() => {
-              window.print();
-              window.close();
-            }, 300);
-          };
-        <\/script>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
   }
 
   // ==========================================
