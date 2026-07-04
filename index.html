@@ -219,7 +219,6 @@
               <div id="errorCabangKasir" class="alert alert-salah hidden" style="margin-top:10px;">⚠️ ADA PAKET SALAH CABANG - TIDAK BISA DIAMBIL DI SINI</div>
               <div style="overflow-x:auto;">
                 <table class="kasir-table">
-                  <!-- STRUKTUR TABEL KASIR BARU -->
                   <thead><tr><th>Ambil?</th><th>No Paket</th><th>Agen</th><th>Jenis/Tujuan</th><th>Tgl Ambil</th><th>RAK</th><th>Berat</th><th>Harga (HKD)</th><th>Status</th></tr></thead>
                   <tbody id="tbodyKasir"></tbody>
                 </table>
@@ -298,7 +297,6 @@
   // ==========================================
   // 1. INISIALISASI INDEXED-DB & VARIABEL GLOBAL
   // ==========================================
-  // Tidak perlu mengubah versi Dexie, data baru tetap bisa dibaca dari property array
   const db = new Dexie("SSLExpressDB");
   db.version(1).stores({ paket: 'noPaket, phone, nama, jenis, statusAmbil, berat, bayar', antrean: '++id, type, status' });
   let memoriScanLokal = [];
@@ -888,7 +886,6 @@
     kumpulanPaket.forEach(paket => {
       let isTaken = paket.statusAmbil === "Sudah Diambil";
       
-      // Ambil data Jenis dari property asli ATAU dari detailArray (Kolom F / index 5)
       let jenisTujuan = paket.jenis || (paket.detailArray ? paket.detailArray[5] : "-") || "-";
       
       let tujuanLower = jenisTujuan.toLowerCase();
@@ -907,13 +904,13 @@
       
       let infoRak = paket.lokasiRak ? `<span style="color:#0056b3;">${paket.lokasiRak}</span>` : "-";
       
-      // AMBIL AGEN (Membaca property 'agen' atau Kolom E / index 4 dari detailArray)
+      // Mengambil Agen (Membaca property 'agen' atau Kolom E / index 4 dari detailArray)
       let agen = paket.agen || (paket.detailArray ? paket.detailArray[4] : "-") || "-";
       
-      // AMBIL TANGGAL AMBIL (Membaca dari banyak kemungkinan nama variabel dari script backend Anda)
-      let tglAmbil = paket.tanggalAmbil || paket['Tanggal Ambil'] || paket.tgl_ambil || paket.tgl || "-";
+      // Mengambil Tanggal Ambil (Membaca dari banyak kemungkinan variabel, ATAU dari Kolom N / index 13 pada detailArray)
+      let tglAmbil = paket.tanggalAmbil || paket['Tanggal Ambil'] || paket.tgl_ambil || paket.tgl || (paket.detailArray ? paket.detailArray[13] : null) || "-";
       
-      // STRUKTUR TR (Table Row) BARU DENGAN AGEN & TGL AMBIL
+      // STRUKTUR TR (Table Row) TABEL KASIR
       tbody.innerHTML += `<tr class="${trClass}">
         <td style="text-align:center;">${checkboxHtml}</td>
         <td><b>${paket.noPaket}</b></td>
