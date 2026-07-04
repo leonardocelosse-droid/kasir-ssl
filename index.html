@@ -170,7 +170,7 @@
           <button onclick="submitScanChecker()" class="btn-primary">Kirim Data Paket</button>
           
           <label style="margin-top:18px; border-top:1px solid #eee; padding-top:10px;">PILIH TANGGAL (Untuk Histori & Cetak Laporan)</label>
-          <input type="date" id="inputTanggalPilihan" onchange="muatLaporanTanggalLayar()">
+          <input type="date" id="inputTanggalPilihan" onchange="muatLaporanTanggalLayar(); muatLaporanKasirRealtime();">
           
           <div style="margin-top: 16px; border-top: 1px solid #f3f4f6; padding-top: 14px; display: flex; justify-content: space-between; align-items: center;">
             <span style="font-size: 13px; color: #6b7280; font-weight: 500;">Sesi aktif berjalan</span>
@@ -242,7 +242,7 @@
           <div id="kasirLaporanArea" class="hidden">
             <div id="printHeaderKasir" class="print-only">
               <h2>LAPORAN PENDAPATAN HARIAN</h2>
-              <h4>Cabang: <span id="printCabangKasir"></span></h4>
+              <h4>Cabang: <span id="printCabangKasir"></span> | Tanggal: <span id="printTglKasir"></span></h4>
             </div>
             <div id="areaRekapKasir"></div>
             <div style="overflow-x:auto;">
@@ -433,7 +433,7 @@
     } else if(tab === 'laporan') {
       document.getElementById('viewLaporan').classList.remove('hidden');
       document.getElementById('navLaporan').classList.add('active');
-      muatLaporanKasirLokal();
+      muatLaporanKasirRealtime();
     } else {
       document.getElementById('viewSync').classList.remove('hidden');
       document.getElementById('navSync').classList.add('active');
@@ -451,7 +451,7 @@
     } else {
       document.getElementById('kasirLaporanArea').classList.remove('hidden');
       document.getElementById('tabLaporan').classList.add('active');
-      muatLaporanKasirLokal();
+      muatLaporanKasirRealtime();
     }
   }
 
@@ -606,7 +606,7 @@
         await callAPI({ action: "batalBayarKasir", noPaket: pin, cabang: cabangAktif });
     } catch(e) {}
 
-    muatLaporanKasirLokal();
+    muatLaporanKasirRealtime();
   }
 
   // ==========================================
@@ -961,38 +961,135 @@
     alert(`✅ ${checked.length} Pembayaran Tersimpan di Memori Lokal!`);
   }
 
-  async function muatLaporanKasirLokal() {
-    let data = await db.paket.toArray();
+  // ==========================================
+  // PERBARUAN: LAPORAN HARIAN LEBIH CERDAS DENGAN FILTER TANGGAL SAPU JAGAT (REALTIME SPREADSHEET)
+  // ==========================================
+  async function muatLaporanKasirRealtime() {
     let tbody = document.getElementById("tbodyLaporanKasir");
     let areaRekap = document.getElementById("areaRekapKasir");
-    tbody.innerHTML = "";
-    let lunasData = data.filter(p => p.statusAmbil === "Sudah Diambil" && p.jenisBayar);
     
-    if(lunasData.length === 0) {
-      tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>Belum ada transaksi offline hari ini</td></tr>";
-      areaRekap.innerHTML = ""; 
-    } else {
+    let tglPilihan = document.getElementById("inputTanggalPilihan").value;
+    let cabangAktif = document.getElementById("lokasiKasirReadonly").value; 
+
+    if(!tglPilihan) {
+       tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>Silakan pastikan Tanggal terpilih di menu Checker.</td></tr>";
+       areaRekap.innerHTML = "";
+       return;
+    }
+
+    // Menampilkan indikator loading
+    tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>⏳ Sedang mensinkronkan data server...</td></tr>";
+
+    // Tarik langsung dari Spreadsheet ID Anda
+    const sheetId = "1p6y2OYYyGhyEGbCB8CIxa8nBogOxpkcdSSw5_RkWV0E";
+    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
+
+    try {
+      const response = await fetch(url);
+      const text = await response.text();
+      
+      // Google API mengembalikan string fungsi, kita ekstrak JSON-nya
+      const jsonString = text.match(/(?<=.*\().*(?=\);)/s)[0];
+      const data = JSON.parse(jsonString);
+
+      let cols = data.table.cols.map(c => c ? c.label.toLowerCase().trim() : "");
+      
+      // Deteksi index kolom secara otomatis (Fallback ke urutan abjad kolom jika header kosong)
+      let idxTgl = cols.findIndex(c => c.includes("tanggal transaksi"));
+      let idxStatus = cols.findIndex(c => c.includes("status ambil"));
+      let idxBayar = cols.findIndex(c => c.includes("jenis bayar"));
+      let idxCabang = cols.findIndex(c => c.includes("cabang pengambilan"));
+      
+      // Asumsi kolom umum (Silakan ubah angka di bawah jika posisinya berbeda di sheet aslinya)
+      if (idxTgl === -1) idxTgl = 16;       // Kolom Q = 16
+      if (idxStatus === -1) idxStatus = 17; // Kolom R = 17
+      if (idxBayar === -1) idxBayar = 18;   // Kolom S = 18
+      if (idxCabang === -1) idxCabang = 19; // Kolom T = 19
+      
+      let idxNoPaket = cols.findIndex(c => c.includes("no paket") || c.includes("resi")) !== -1 ? cols.findIndex(c => c.includes("no paket") || c.includes("resi")) : 3;
+      let idxTujuan = cols.findIndex(c => c.includes("tujuan") || c.includes("jenis")) !== -1 ? cols.findIndex(c => c.includes("tujuan") || c.includes("jenis")) : 5;
+      let idxHarga = cols.findIndex(c => c.includes("harga") || c.includes("bayar")) !== -1 ? cols.findIndex(c => c.includes("harga") || c.includes("bayar")) : 7;
+
       let subtotals = { "Cash": 0, "Octopus": 0, "Alipay": 0, "Kartu Kredit": 0, "Kredit / Hutang": 0, "Lain-lain": 0 };
       let totalSemua = 0;
-      lunasData.forEach(p => {
-        let hargaHKD = parseFloat(p.bayar) || 0;
-        let jenis = p.jenisBayar || "Lain-lain";
-        if (subtotals[jenis] !== undefined) { subtotals[jenis] += hargaHKD; } else { subtotals["Lain-lain"] += hargaHKD; }
-        totalSemua += hargaHKD;
-        tbody.innerHTML += `<tr><td><b>${p.noPaket}</b></td><td>${p.jenis}</td><td>HKD ${hargaHKD}</td><td>${jenis}</td><td><button onclick="batalBayarKasir('${p.noPaket}', this)" class="btn-hapus">❌ Batal</button></td></tr>`;
+      let htmlTbody = "";
+
+      data.table.rows.forEach(row => {
+        let c = row.c;
+        if (!c) return;
+
+        let tglStr = c[idxTgl] ? (c[idxTgl].f || c[idxTgl].v || "").toString() : "";
+        let status = c[idxStatus] ? (c[idxStatus].f || c[idxStatus].v || "").toString().toLowerCase() : "";
+        let jenisBayar = c[idxBayar] ? (c[idxBayar].f || c[idxBayar].v || "").toString() : "";
+        let cabangData = c[idxCabang] ? (c[idxCabang].f || c[idxCabang].v || "").toString().toUpperCase() : "";
+
+        let isLunas = status.includes("ambil") || status.includes("lunas");
+        let isCabangSesuai = cabangData.includes(cabangAktif.toUpperCase()) || cabangAktif === "";
+
+        // Logika sapu jagat pencocokan tanggal 
+        let [y, m, d] = tglPilihan.split("-");
+        let dInt = parseInt(d).toString();
+        let mInt = parseInt(m).toString();
+        
+        let possibleDates = [ tglPilihan, `${dInt}/${mInt}/${y}`, `${mInt}/${dInt}/${y}`, `${dInt}-${mInt}-${y}`, `${mInt}-${dInt}-${y}` ];
+        let matchDate = possibleDates.some(pd => tglStr.includes(pd));
+
+        if (isLunas && isCabangSesuai && matchDate && jenisBayar) {
+          let noPaket = c[idxNoPaket] ? (c[idxNoPaket].f || c[idxNoPaket].v) : "-";
+          let tujuan = c[idxTujuan] ? (c[idxTujuan].f || c[idxTujuan].v) : "-";
+          let hargaHKD = parseFloat(c[idxHarga] ? (c[idxHarga].v || c[idxHarga].f) : 0) || 0; // Ambil value raw
+
+          // Kelompokkan metode pembayaran
+          let keyMetode = "Lain-lain";
+          let jLower = jenisBayar.toLowerCase();
+          if (jLower.includes("cash")) keyMetode = "Cash";
+          else if (jLower.includes("octopus")) keyMetode = "Octopus";
+          else if (jLower.includes("alipay")) keyMetode = "Alipay";
+          else if (jLower.includes("kredit") && !jLower.includes("hutang")) keyMetode = "Kartu Kredit";
+          else if (jLower.includes("hutang")) keyMetode = "Kredit / Hutang";
+
+          subtotals[keyMetode] += hargaHKD;
+          totalSemua += hargaHKD;
+
+          htmlTbody += `<tr>
+              <td><b>${noPaket}</b></td>
+              <td>${tujuan}</td>
+              <td>HKD ${hargaHKD}</td>
+              <td>${jenisBayar}</td>
+              <td><span style="color:#10b981; font-weight:bold; font-size: 11px;">✅ Realtime</span></td>
+          </tr>`;
+        }
       });
-      areaRekap.innerHTML = `
-        <div style="background:#e9ecef; padding:20px; border-radius:10px; margin-bottom:20px; border:1px solid #ccc; display:flex; flex-wrap:wrap; justify-content:space-between; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
-          <div style="min-width: 150px; margin-bottom:10px;"><strong style="font-size:15px; display:block; margin-bottom:8px;">Rincian Pendapatan:</strong>💵 Cash: HKD ${subtotals["Cash"]}<br>💳 Octopus: HKD ${subtotals["Octopus"]}<br>📱 Alipay: HKD ${subtotals["Alipay"]}</div>
-          <div style="min-width: 150px;"><br>💳 Kartu Kredit: HKD ${subtotals["Kartu Kredit"]}<br>📝 Kredit / Hutang: HKD ${subtotals["Kredit / Hutang"]}<br>📦 Lain-lain: HKD ${subtotals["Lain-lain"]}</div>
-          <div style="width:100%; border-top:1px solid #bbb; margin-top:15px; padding-top:10px;"><strong style="font-size:18px; color:#d9534f;">Total Keseluruhan: HKD ${totalSemua}</strong></div>
-        </div>`;
+
+      if (htmlTbody === "") {
+        tbody.innerHTML = `<tr><td colspan='5' style='text-align:center;'>Belum ada pendapatan (Realtime) di tanggal ${tglPilihan}</td></tr>`;
+        areaRekap.innerHTML = ""; 
+      } else {
+        tbody.innerHTML = htmlTbody;
+        areaRekap.innerHTML = `
+          <div style="background:#e9ecef; padding:20px; border-radius:10px; margin-bottom:20px; border:1px solid #ccc; display:flex; flex-wrap:wrap; justify-content:space-between; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
+            <div style="min-width: 150px; margin-bottom:10px;"><strong style="font-size:15px; display:block; margin-bottom:8px;">Rincian Pendapatan (Langsung dari Sheet):</strong>💵 Cash: HKD ${subtotals["Cash"]}<br>💳 Octopus: HKD ${subtotals["Octopus"]}<br>📱 Alipay: HKD ${subtotals["Alipay"]}</div>
+            <div style="min-width: 150px;"><br>💳 Kartu Kredit: HKD ${subtotals["Kartu Kredit"]}<br>📝 Kredit / Hutang: HKD ${subtotals["Kredit / Hutang"]}<br>📦 Lain-lain: HKD ${subtotals["Lain-lain"]}</div>
+            <div style="width:100%; border-top:1px solid #bbb; margin-top:15px; padding-top:10px;"><strong style="font-size:18px; color:#d9534f;">Total Keseluruhan: HKD ${totalSemua}</strong></div>
+          </div>`;
+      }
+      
+      let printTglKasirElem = document.getElementById("printTglKasir");
+      if(printTglKasirElem) printTglKasirElem.innerText = tglPilihan;
+
+    } catch (error) {
+      console.error(error);
+      tbody.innerHTML = `<tr><td colspan='5' style='text-align:center; color:red;'><b>Gagal mengambil data Realtime.</b><br>Pastikan Spreadsheet Anda memiliki akses: <b>"Siapa saja yang memiliki link dapat melihat"</b></td></tr>`;
     }
   }
 
   function cetakLaporanKasirLokal() {
     let cabang = localStorage.getItem("sesiCabangSSL");
+    let tglPilihan = document.getElementById("inputTanggalPilihan").value;
     document.getElementById("printCabangKasir").innerText = cabang.toUpperCase();
+    
+    let printTglKasirElem = document.getElementById("printTglKasir");
+    if(printTglKasirElem) printTglKasirElem.innerText = tglPilihan;
 
     // Pastikan UI pada posisi Sub-Tab Laporan
     document.getElementById('kasirAmbilArea').classList.add('hidden');
