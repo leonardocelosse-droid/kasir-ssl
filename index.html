@@ -433,7 +433,7 @@
     } else if(tab === 'laporan') {
       document.getElementById('viewLaporan').classList.remove('hidden');
       document.getElementById('navLaporan').classList.add('active');
-      muatLaporanKasirLokal();
+      muatLaporanKasirLokal(); // Panggil saat pindah ke menu Laporan (Cetak)
     } else {
       document.getElementById('viewSync').classList.remove('hidden');
       document.getElementById('navSync').classList.add('active');
@@ -451,7 +451,7 @@
     } else {
       document.getElementById('kasirLaporanArea').classList.remove('hidden');
       document.getElementById('tabLaporan').classList.add('active');
-      muatLaporanKasirLokal();
+      muatLaporanKasirLokal(); // Panggil saat klik sub-tab Laporan Harian
     }
   }
 
@@ -592,7 +592,6 @@
 
     if(btn) { btn.innerText = "⏳ Batal..."; btn.disabled = true; }
 
-    // Kembalikan flag baruSajaDibayarLokal menjadi false
     await db.paket.update(pin.toString(), { statusAmbil: "", jenisBayar: "", baruSajaDibayarLokal: false });
 
     let pendingScans = await db.antrean.where('status').equals('pending').toArray();
@@ -886,9 +885,7 @@
     let adaSalahCabang = false;
     let adaBelumDiambil = false;
 
-    // --- PROSES RENDER BARIS DI TABEL KASIR (Membaca Array Sesuai Settingan Anda) ---
     kumpulanPaket.forEach(paket => {
-      // Status Ambil = Kolom R (Index 17)
       let statusDb = paket.statusAmbil || (paket.detailArray && paket.detailArray.length > 17 ? paket.detailArray[17] : "");
       let isTaken = statusDb.toString().toLowerCase().includes("ambil") || statusDb.toString().toLowerCase().includes("lunas");
       
@@ -909,11 +906,7 @@
       let trClass = isTaken ? "taken" : (isWrongLocation ? "warning-text" : "");
       
       let infoRak = paket.lokasiRak ? `<span style="color:#0056b3;">${paket.lokasiRak}</span>` : "-";
-      
-      // Agen = Kolom E (Index 4)
       let agen = paket.agen || (paket.detailArray && paket.detailArray.length > 4 ? paket.detailArray[4] : "-") || "-";
-      
-      // Tanggal Ambil = Kolom Q (Index 16)
       let tglAmbil = paket.tanggalAmbil || paket['Tanggal Ambil'] || (paket.detailArray && paket.detailArray.length > 16 ? paket.detailArray[16] : "-") || "-";
       if(!tglAmbil || tglAmbil.toString().trim() === "") tglAmbil = "-"; 
       
@@ -983,7 +976,7 @@
   }
 
   // ==========================================
-  // PERBARUAN: LAPORAN HARIAN DIKEMBALIKAN KE VERSI STABIL + FILTER TANGGAL
+  // PERBARUAN: LAPORAN HARIAN LEBIH CERDAS DENGAN FILTER TANGGAL SAPU JAGAT
   // ==========================================
   async function muatLaporanKasirLokal() {
     let data = await db.paket.toArray();
@@ -1000,31 +993,37 @@
 
     tbody.innerHTML = "";
     
-    // FORMAT FILTER TANGGAL SEPERTI VERSI SEBELUMNYA YANG STABIL
     let lunasData = data.filter(p => {
-        // Status Ambil = Kolom R (Index 17)
         let status = p.statusAmbil || (p.detailArray && p.detailArray.length > 17 ? p.detailArray[17] : "");
         let isLunas = status.toString().toLowerCase().includes("ambil") || status.toString().toLowerCase().includes("lunas");
         
-        // Jenis Bayar = Kolom S (Index 18)
         let metode = p.jenisBayar || (p.detailArray && p.detailArray.length > 18 ? p.detailArray[18] : "");
         let hasMetode = metode && metode.toString().trim() !== "";
         
-        // Tanggal Ambil = Kolom Q (Index 16)
         let tgl = p.tanggalAmbil || p['Tanggal Ambil'] || (p.detailArray && p.detailArray.length > 16 ? p.detailArray[16] : "");
         
-        // Cek apakah tanggal sesuai dengan kalender ATAU paket ini baru saja dibayar hari ini secara offline
         let matchDate = false;
         if (p.baruSajaDibayarLokal === true) {
             matchDate = true; 
-        } else if (tgl.toString().includes(tglPilihan)) {
-            matchDate = true;
         } else {
-            // Cek variasi format tanggal (contoh tglPilihan: 2026-07-04 -> cari "4/7" atau "4-7")
+            let tStr = tgl.toString().trim();
+            // Pecah kalender HP "2026-07-04"
             let [y, m, d] = tglPilihan.split("-");
-            let dInt = parseInt(d).toString();
-            let mInt = parseInt(m).toString();
-            if (tgl.toString().includes(`${dInt}/${mInt}`) || tgl.toString().includes(`${dInt}-${mInt}`)) {
+            let dInt = parseInt(d).toString(); // "4"
+            let mInt = parseInt(m).toString(); // "7"
+            
+            // Jaring pengaman semua format tanggal yg mungkin dikirim dari Google Sheet
+            let possibleDates = [
+                tglPilihan,               // "2026-07-04"
+                `${dInt}/${mInt}/${y}`,   // "4/7/2026"
+                `${mInt}/${dInt}/${y}`,   // "7/4/2026" (Format US Google Sheet)
+                `${dInt}-${mInt}-${y}`,   // "4-7-2026"
+                `${mInt}-${dInt}-${y}`,   // "7-4-2026"
+                `${d}/${m}/${y}`,         // "04/07/2026"
+                `${m}/${d}/${y}`          // "07/04/2026"
+            ];
+            
+            if (possibleDates.some(pd => tStr.includes(pd))) {
                 matchDate = true;
             }
         }
@@ -1043,7 +1042,6 @@
         let hargaHKD = parseFloat(p.bayar) || 0;
         let jenisAsli = p.jenisBayar || (p.detailArray && p.detailArray.length > 18 ? p.detailArray[18] : "Lain-lain");
         
-        // STANDARISASI KATEGORI (DIKEMBALIKAN SEPERTI VERSI LAMA YANG RAPI)
         let keyMetode = "Lain-lain";
         let jLower = jenisAsli.toString().toLowerCase();
         if (jLower.includes("cash")) keyMetode = "Cash";
@@ -1068,7 +1066,6 @@
         </div>`;
     }
     
-    // Pastikan judul laporan memiliki tanggal
     let printTglKasirElem = document.getElementById("printTglKasir");
     if(printTglKasirElem) printTglKasirElem.innerText = tglPilihan;
   }
@@ -1124,4 +1121,4 @@
   setInterval(prosesAntreanLatarBelakang, 5000); 
 </script>
 </body>
-</html> 
+</html>
