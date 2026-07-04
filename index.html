@@ -1093,7 +1093,7 @@
   }
 
   // ==========================================
-  // FUNGSI AUTO-SYNC SAAT BUKA LAPORAN
+  // FUNGSI AUTO-SYNC SAAT BUKA LAPORAN (DIPERBAIKI)
   // ==========================================
   async function autoTarikDataLaporan() {
     let tbody = document.getElementById("tbodyLaporanKasir");
@@ -1101,25 +1101,40 @@
     
     // Tampilkan indikator loading ke pengguna
     areaRekap.innerHTML = "";
-    tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>⏳ Sedang menarik data terbaru dari server...</td></tr>";
+    tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>⏳ Sedang mensinkronkan data server...</td></tr>";
 
-    // Cek koneksi internet sebelum memanggil API
     if (navigator.onLine) {
       try {
         let res = await callAPI({ action: "sinkronisasiAwalLokal" });
         if (res.success) {
-          // Perbarui database lokal dengan data terbaru
+          // 1. BACKUP data transaksi kasir lokal yang barusan dibayar (belum utuh di server)
+          let semuaDataLokal = await db.paket.toArray();
+          let backupLokal = semuaDataLokal.filter(p => p.baruSajaDibayarLokal === true);
+
+          // 2. Bersihkan DB lokal & Timpa dengan data master server terbaru
           await db.paket.clear();
           await db.paket.bulkAdd(res.data);
+
+          // 3. KEMBALIKAN (Merge) data lokal yang sudah dibayar agar tidak hilang dari layar
+          if (backupLokal.length > 0) {
+            await db.paket.bulkPut(backupLokal);
+          }
         }
       } catch (error) {
-        console.warn("Gagal auto-sync API, beralih ke data lokal:", error);
+        console.warn("Gagal auto-sync API:", error);
       }
     } else {
       tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>⚠️ Anda sedang offline. Menampilkan data lokal yang ada.</td></tr>";
     }
 
-    // Setelah proses tarik data selesai, muat data ke layar
+    // Perbaikan Bug Visual: Mengisi teks Cabang yang kosong pada header Laporan
+    let cabangAktif = localStorage.getItem("sesiCabangSSL") || "";
+    let teksCabangPrint = document.getElementById("printCabangKasir");
+    if (teksCabangPrint) {
+        teksCabangPrint.innerText = cabangAktif.toUpperCase();
+    }
+
+    // 4. Muat ulang tabel berdasarkan data yang sudah digabungkan secara presisi
     muatLaporanKasirLokal();
   }
 
