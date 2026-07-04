@@ -112,7 +112,7 @@
     <div id="loginArea" class="card">
       <div class="login-header">
         <h1>Selamat Datang</h1>
-        <p style="font-size:14px; color:#6b7280; margin-top:4px;">Akses Cloud API</p>
+        <p style="font-size:14px; color:#6b7280; margin-top:4px;">Akses Cloud API GitHub Edition</p>
       </div>
       <label>KODE CABANG</label>
       <input type="text" id="inputCabang" placeholder="Contoh: WTS, CWB, ABERDEEN">
@@ -170,7 +170,7 @@
           <button onclick="submitScanChecker()" class="btn-primary">Kirim Data Paket</button>
           
           <label style="margin-top:18px; border-top:1px solid #eee; padding-top:10px;">PILIH TANGGAL (Untuk Histori & Cetak Laporan)</label>
-          <input type="date" id="inputTanggalPilihan" onchange="muatLaporanTanggalLayar(); muatLaporanKasirLokal();">
+          <input type="date" id="inputTanggalPilihan" onchange="muatLaporanTanggalLayar()">
           
           <div style="margin-top: 16px; border-top: 1px solid #f3f4f6; padding-top: 14px; display: flex; justify-content: space-between; align-items: center;">
             <span style="font-size: 13px; color: #6b7280; font-weight: 500;">Sesi aktif berjalan</span>
@@ -219,7 +219,7 @@
               <div id="errorCabangKasir" class="alert alert-salah hidden" style="margin-top:10px;">⚠️ ADA PAKET SALAH CABANG - TIDAK BISA DIAMBIL DI SINI</div>
               <div style="overflow-x:auto;">
                 <table class="kasir-table">
-                  <thead><tr><th>Ambil?</th><th>No Paket</th><th>Agen</th><th>Jenis/Tujuan</th><th>Tgl Ambil</th><th>RAK</th><th>Berat</th><th>Harga (HKD)</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Ambil?</th><th>No Paket</th><th>Jenis</th><th>Tanggal Ambil</th><th>RAK</th><th>Berat</th><th>Harga (HKD)</th><th>Status</th></tr></thead>
                   <tbody id="tbodyKasir"></tbody>
                 </table>
               </div>
@@ -242,12 +242,12 @@
           <div id="kasirLaporanArea" class="hidden">
             <div id="printHeaderKasir" class="print-only">
               <h2>LAPORAN PENDAPATAN HARIAN</h2>
-              <h4>Cabang: <span id="printCabangKasir"></span> | Tanggal: <span id="printTglKasir"></span></h4>
+              <h4>Cabang: <span id="printCabangKasir"></span></h4>
             </div>
             <div id="areaRekapKasir"></div>
             <div style="overflow-x:auto;">
               <table class="kasir-table">
-                <thead><tr><th>No Paket</th><th>Tujuan</th><th>Harga</th><th>Metode</th><th>AKSI</th></tr></thead>
+                <thead><tr><th>No Paket</th><th>Jenis</th><th>Harga</th><th>Metode</th><th>AKSI</th></tr></thead>
                 <tbody id="tbodyLaporanKasir"></tbody>
               </table>
             </div>
@@ -298,7 +298,7 @@
   // 1. INISIALISASI INDEXED-DB & VARIABEL GLOBAL
   // ==========================================
   const db = new Dexie("SSLExpressDB");
-  db.version(1).stores({ paket: 'noPaket, phone, nama, jenis, statusAmbil, berat, bayar', antrean: '++id, type, status' });
+  db.version(1).stores({ paket: 'noPaket, phone, nama, jenis, statusAmbil, berat, bayar, lokasiRak', antrean: '++id, type, status' });
   let memoriScanLokal = [];
   
   let qrScanner = null;
@@ -433,7 +433,7 @@
     } else if(tab === 'laporan') {
       document.getElementById('viewLaporan').classList.remove('hidden');
       document.getElementById('navLaporan').classList.add('active');
-      muatLaporanKasirLokal(); // Panggil saat pindah ke menu Laporan (Cetak)
+      muatLaporanKasirLokal();
     } else {
       document.getElementById('viewSync').classList.remove('hidden');
       document.getElementById('navSync').classList.add('active');
@@ -451,7 +451,7 @@
     } else {
       document.getElementById('kasirLaporanArea').classList.remove('hidden');
       document.getElementById('tabLaporan').classList.add('active');
-      muatLaporanKasirLokal(); // Panggil saat klik sub-tab Laporan Harian
+      muatLaporanKasirLokal();
     }
   }
 
@@ -592,7 +592,7 @@
 
     if(btn) { btn.innerText = "⏳ Batal..."; btn.disabled = true; }
 
-    await db.paket.update(pin.toString(), { statusAmbil: "", jenisBayar: "", baruSajaDibayarLokal: false });
+    await db.paket.update(pin.toString(), { statusAmbil: "", jenisBayar: "" });
 
     let pendingScans = await db.antrean.where('status').equals('pending').toArray();
     for (let p of pendingScans) {
@@ -652,10 +652,7 @@
       return;
     }
 
-    let statusCheck = paket ? (paket.statusAmbil || (paket.detailArray && paket.detailArray.length > 17 ? paket.detailArray[17] : "")) : "";
-    let isTakenCheck = statusCheck.toString().toLowerCase().includes("ambil") || statusCheck.toString().toLowerCase().includes("lunas");
-
-    if (paket && isTakenCheck) {
+    if (paket && paket.statusAmbil === "Sudah Diambil") {
       playTetot();
       alertBox.className = "alert alert-salah";
       alertBox.style.backgroundColor = "#fee2e2";
@@ -674,7 +671,7 @@
     let detailArr = ["-", "-", "-", finalPin, "-", "-", "-", "-", "-", "-", "-"];
     
     if(paket) {
-      tujuanMaster = paket.jenis || (paket.detailArray && paket.detailArray.length > 5 ? paket.detailArray[5] : "-") || "-";
+      tujuanMaster = paket.jenis || "-";
       detailArr = paket.detailArray || detailArr;
       let tLower = tujuanMaster.toLowerCase();
       let cLower = cabangAktif.toLowerCase();
@@ -841,6 +838,7 @@
     let targetPhone = "";
     let namaKustomer = "";
 
+    // 1. Cari target phone berdasarkan input
     let paketAwal = await db.paket.get(input);
     if (paketAwal) {
       targetPhone = normalisasiTelepon(paketAwal.phone) || (paketAwal.phone ? paketAwal.phone.toString() : "");
@@ -865,6 +863,7 @@
       return;
     }
 
+    // 2. Kumpulkan paket
     let kumpulanPaket = [];
     if (targetPhone) {
         let targetNorm = normalisasiTelepon(targetPhone);
@@ -885,13 +884,10 @@
     let adaSalahCabang = false;
     let adaBelumDiambil = false;
 
+    // 3. Render baris
     kumpulanPaket.forEach(paket => {
-      let statusDb = paket.statusAmbil || (paket.detailArray && paket.detailArray.length > 17 ? paket.detailArray[17] : "");
-      let isTaken = statusDb.toString().toLowerCase().includes("ambil") || statusDb.toString().toLowerCase().includes("lunas");
-      
-      let jenisTujuan = paket.jenis || (paket.detailArray && paket.detailArray.length > 5 ? paket.detailArray[5] : "-") || "-";
-      
-      let tujuanLower = jenisTujuan.toLowerCase();
+      let isTaken = paket.statusAmbil === "Sudah Diambil";
+      let tujuanLower = (paket.jenis||"").toLowerCase();
       let isBenar = false;
       if (cabangAktif.includes("cwb") && (tujuanLower.includes("cwb") || tujuanLower.includes("causeway bay"))) isBenar = true;
       else if (cabangAktif.includes("ssp") && (tujuanLower.includes("ssp") || tujuanLower.includes("sham shui po"))) isBenar = true;
@@ -904,17 +900,13 @@
 
       let checkboxHtml = isTaken ? "✔️" : (isWrongLocation ? "🚫" : `<input type="checkbox" class="cb-kasir" value="${paket.noPaket}" data-harga="${paket.bayar}" checked onchange="hitungTotalKasir()">`);
       let trClass = isTaken ? "taken" : (isWrongLocation ? "warning-text" : "");
-      
       let infoRak = paket.lokasiRak ? `<span style="color:#0056b3;">${paket.lokasiRak}</span>` : "-";
-      let agen = paket.agen || (paket.detailArray && paket.detailArray.length > 4 ? paket.detailArray[4] : "-") || "-";
-      let tglAmbil = paket.tanggalAmbil || paket['Tanggal Ambil'] || (paket.detailArray && paket.detailArray.length > 16 ? paket.detailArray[16] : "-") || "-";
-      if(!tglAmbil || tglAmbil.toString().trim() === "") tglAmbil = "-"; 
+      let tglAmbil = paket['Tanggal Ambil'] || paket.tanggalAmbil || paket.tanggal_ambil || paket.tgl || paket.tanggal || "-"; 
       
       tbody.innerHTML += `<tr class="${trClass}">
         <td style="text-align:center;">${checkboxHtml}</td>
         <td><b>${paket.noPaket}</b></td>
-        <td>${agen}</td>
-        <td>${jenisTujuan}</td>
+        <td>${paket.jenis || "-"}</td>
         <td><b>${tglAmbil}</b></td>
         <td><b>${infoRak}</b></td>
         <td>${paket.berat || "-"}</td>
@@ -957,16 +949,10 @@
     
     let metode = document.getElementById("metodeBayarKasir").value;
     let cabangAktif = document.getElementById("lokasiKasirReadonly").value;
-    let tglPilihan = document.getElementById("inputTanggalPilihan").value;
     
     for (let i = 0; i < checked.length; i++) {
         let noPaket = checked[i].value;
-        await db.paket.update(noPaket, { 
-            statusAmbil: "Sudah Diambil", 
-            jenisBayar: metode,
-            tanggalAmbil: tglPilihan, 
-            baruSajaDibayarLokal: true
-        });
+        await db.paket.update(noPaket, { statusAmbil: "Sudah Diambil", jenisBayar: metode });
         await db.antrean.add({ type: 'KASIR_BAYAR', status: 'pending', payload: { noPaket: noPaket, metode: metode, cabang: cabangAktif } });
     }
     
@@ -975,89 +961,26 @@
     alert(`✅ ${checked.length} Pembayaran Tersimpan di Memori Lokal!`);
   }
 
-  // ==========================================
-  // PERBARUAN: LAPORAN HARIAN LEBIH CERDAS DENGAN FILTER TANGGAL SAPU JAGAT
-  // ==========================================
   async function muatLaporanKasirLokal() {
     let data = await db.paket.toArray();
     let tbody = document.getElementById("tbodyLaporanKasir");
     let areaRekap = document.getElementById("areaRekapKasir");
-    
-    let tglPilihan = document.getElementById("inputTanggalPilihan").value;
-    
-    if(!tglPilihan) {
-       tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>Silakan pastikan Tanggal terpilih di menu Checker.</td></tr>";
-       areaRekap.innerHTML = "";
-       return;
-    }
-
     tbody.innerHTML = "";
-    
-    let lunasData = data.filter(p => {
-        let status = p.statusAmbil || (p.detailArray && p.detailArray.length > 17 ? p.detailArray[17] : "");
-        let isLunas = status.toString().toLowerCase().includes("ambil") || status.toString().toLowerCase().includes("lunas");
-        
-        let metode = p.jenisBayar || (p.detailArray && p.detailArray.length > 18 ? p.detailArray[18] : "");
-        let hasMetode = metode && metode.toString().trim() !== "";
-        
-        let tgl = p.tanggalAmbil || p['Tanggal Ambil'] || (p.detailArray && p.detailArray.length > 16 ? p.detailArray[16] : "");
-        
-        let matchDate = false;
-        if (p.baruSajaDibayarLokal === true) {
-            matchDate = true; 
-        } else {
-            let tStr = tgl.toString().trim();
-            // Pecah kalender HP "2026-07-04"
-            let [y, m, d] = tglPilihan.split("-");
-            let dInt = parseInt(d).toString(); // "4"
-            let mInt = parseInt(m).toString(); // "7"
-            
-            // Jaring pengaman semua format tanggal yg mungkin dikirim dari Google Sheet
-            let possibleDates = [
-                tglPilihan,               // "2026-07-04"
-                `${dInt}/${mInt}/${y}`,   // "4/7/2026"
-                `${mInt}/${dInt}/${y}`,   // "7/4/2026" (Format US Google Sheet)
-                `${dInt}-${mInt}-${y}`,   // "4-7-2026"
-                `${mInt}-${dInt}-${y}`,   // "7-4-2026"
-                `${d}/${m}/${y}`,         // "04/07/2026"
-                `${m}/${d}/${y}`          // "07/04/2026"
-            ];
-            
-            if (possibleDates.some(pd => tStr.includes(pd))) {
-                matchDate = true;
-            }
-        }
-        
-        return isLunas && hasMetode && matchDate;
-    });
+    let lunasData = data.filter(p => p.statusAmbil === "Sudah Diambil" && p.jenisBayar);
     
     if(lunasData.length === 0) {
-      tbody.innerHTML = `<tr><td colspan='5' style='text-align:center;'>Belum ada transaksi offline di tanggal ${tglPilihan}</td></tr>`;
+      tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>Belum ada transaksi offline hari ini</td></tr>";
       areaRekap.innerHTML = ""; 
     } else {
       let subtotals = { "Cash": 0, "Octopus": 0, "Alipay": 0, "Kartu Kredit": 0, "Kredit / Hutang": 0, "Lain-lain": 0 };
       let totalSemua = 0;
-      
       lunasData.forEach(p => {
         let hargaHKD = parseFloat(p.bayar) || 0;
-        let jenisAsli = p.jenisBayar || (p.detailArray && p.detailArray.length > 18 ? p.detailArray[18] : "Lain-lain");
-        
-        let keyMetode = "Lain-lain";
-        let jLower = jenisAsli.toString().toLowerCase();
-        if (jLower.includes("cash")) keyMetode = "Cash";
-        else if (jLower.includes("octopus")) keyMetode = "Octopus";
-        else if (jLower.includes("alipay")) keyMetode = "Alipay";
-        else if (jLower.includes("kredit") && !jLower.includes("hutang")) keyMetode = "Kartu Kredit";
-        else if (jLower.includes("hutang")) keyMetode = "Kredit / Hutang";
-
-        subtotals[keyMetode] += hargaHKD;
+        let jenis = p.jenisBayar || "Lain-lain";
+        if (subtotals[jenis] !== undefined) { subtotals[jenis] += hargaHKD; } else { subtotals["Lain-lain"] += hargaHKD; }
         totalSemua += hargaHKD;
-        
-        let jenisTujuan = p.jenis || (p.detailArray && p.detailArray.length > 5 ? p.detailArray[5] : "-") || "-";
-        
-        tbody.innerHTML += `<tr><td><b>${p.noPaket}</b></td><td>${jenisTujuan}</td><td>HKD ${hargaHKD}</td><td>${jenisAsli}</td><td><button onclick="batalBayarKasir('${p.noPaket}', this)" class="btn-hapus">❌ Batal</button></td></tr>`;
+        tbody.innerHTML += `<tr><td><b>${p.noPaket}</b></td><td>${p.jenis}</td><td>HKD ${hargaHKD}</td><td>${jenis}</td><td><button onclick="batalBayarKasir('${p.noPaket}', this)" class="btn-hapus">❌ Batal</button></td></tr>`;
       });
-      
       areaRekap.innerHTML = `
         <div style="background:#e9ecef; padding:20px; border-radius:10px; margin-bottom:20px; border:1px solid #ccc; display:flex; flex-wrap:wrap; justify-content:space-between; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
           <div style="min-width: 150px; margin-bottom:10px;"><strong style="font-size:15px; display:block; margin-bottom:8px;">Rincian Pendapatan:</strong>💵 Cash: HKD ${subtotals["Cash"]}<br>💳 Octopus: HKD ${subtotals["Octopus"]}<br>📱 Alipay: HKD ${subtotals["Alipay"]}</div>
@@ -1065,18 +988,11 @@
           <div style="width:100%; border-top:1px solid #bbb; margin-top:15px; padding-top:10px;"><strong style="font-size:18px; color:#d9534f;">Total Keseluruhan: HKD ${totalSemua}</strong></div>
         </div>`;
     }
-    
-    let printTglKasirElem = document.getElementById("printTglKasir");
-    if(printTglKasirElem) printTglKasirElem.innerText = tglPilihan;
   }
 
   function cetakLaporanKasirLokal() {
     let cabang = localStorage.getItem("sesiCabangSSL");
-    let tglPilihan = document.getElementById("inputTanggalPilihan").value;
     document.getElementById("printCabangKasir").innerText = cabang.toUpperCase();
-    
-    let printTglKasirElem = document.getElementById("printTglKasir");
-    if(printTglKasirElem) printTglKasirElem.innerText = tglPilihan;
 
     // Pastikan UI pada posisi Sub-Tab Laporan
     document.getElementById('kasirAmbilArea').classList.add('hidden');
@@ -1121,4 +1037,4 @@
   setInterval(prosesAntreanLatarBelakang, 5000); 
 </script>
 </body>
-</html> 
+</html>
