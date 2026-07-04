@@ -38,7 +38,6 @@
 
     /* MENU NAVIGASI UTAMA */
     .nav-tabs { display: flex; margin-bottom: 15px; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #e5e7eb; }
-    /* Penambahan flex:1 agar 4 menu terbagi rata di layar */
     .nav-tabs button { flex: 1; border-radius: 0; box-shadow: none; background: transparent; color: #6b7280; font-weight: 600; padding: 12px 6px; font-size: 13px; text-align: center; }
     .nav-tabs button.active { background: #e0e7ff; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; }
 
@@ -52,7 +51,7 @@
     .warning-text { color: #dc2626; font-weight: bold; background-color: #fee2e2; }
     .taken { color: #888; text-decoration: line-through; background-color: #f9f9f9; }
 
-    /* CHECKER TABLE CSS (11 Kolom) */
+    /* CHECKER TABLE CSS */
     .table-container { overflow-x: auto; margin-top: 10px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; }
     .checker-table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 900px; }
     .checker-table td, .checker-table th { padding: 10px 12px; text-align: left; border-bottom: 1px solid #f3f4f6; }
@@ -185,12 +184,12 @@
             <div id="reader-kasir" class="scanner-container hidden"></div>
             <button id="btn-scan-kasir" class="btn-camera" onclick="toggleScanner('KASIR')" style="padding:12px; font-size:14px; margin-bottom:10px;">📷 Scan Barcode / QR</button>
             
-            <input type="text" inputmode="numeric" pattern="[0-9]*" id="noPaketKasir" placeholder="Ketik nomor paket..." onkeypress="if(event.key === 'Enter') cariPaketKasir()">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" id="noPaketKasir" placeholder="Ketik PIN / No HP kustomer..." onkeypress="if(event.key === 'Enter') cariPaketKasir()">
             <button class="btn-primary" style="background:#28a745;" onclick="cariPaketKasir()">Cari Paket</button>
 
             <div id="hasilPencarianKasir" class="hidden" style="margin-top:20px; border-top:2px dashed #ccc; padding-top:15px;">
               <h3 id="infoKustomerKasir" style="font-size:15px;"></h3>
-              <div id="errorCabangKasir" class="alert alert-salah hidden" style="margin-top:10px;">⚠️ SALAH CABANG - PAKET TIDAK BISA DIAMBIL DI SINI</div>
+              <div id="errorCabangKasir" class="alert alert-salah hidden" style="margin-top:10px;">⚠️ ADA PAKET SALAH CABANG - TIDAK BISA DIAMBIL DI SINI</div>
               <div style="overflow-x:auto;">
                 <table class="kasir-table">
                   <thead><tr><th>Ambil?</th><th>No Paket</th><th>Tujuan</th><th>Berat</th><th>Harga (HKD)</th><th>Status</th></tr></thead>
@@ -338,11 +337,9 @@
   // 2. LOGIKA LOGIN & NAVIGASI
   // ==========================================
   document.addEventListener("DOMContentLoaded", function() {
-    // 1. SET TANGGAL TERLEBIH DAHULU
     let tzoffset = (new Date()).getTimezoneOffset() * 60000; 
     document.getElementById('inputTanggalPilihan').value = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 10);
 
-    // 2. SETELAH TANGGAL TERISI, BARU MUAT APLIKASI
     let sesi = localStorage.getItem("sesiCabangSSL");
     if(sesi) { tampilkanMainApp(sesi); }
   });
@@ -629,7 +626,6 @@
     let cabang = localStorage.getItem("sesiCabangSSL");
     let tbody = document.getElementById("bodyTabelChecker");
     
-    // Cegah error jika tanggal belum ada
     if (!tgl) return; 
 
     tbody.innerHTML = "<tr><td colspan='11' style='text-align:center;'>Memuat data...</td></tr>";
@@ -639,7 +635,6 @@
     memoriScanLokal = []; 
     let processedPins = new Set(); 
 
-    // TAHAP 1: Coba ambil dari server secara pelan (API)
     try {
       let res = await callAPI({ action: "fetchLaporanByTanggal", cabang: cabang, tanggalStr: tgl });
       if (res && res.success && Array.isArray(res.data)) {
@@ -649,9 +644,7 @@
       console.warn("⚠️ API Timeout / Offline. Melanjutkan memuat data lokal.");
     }
 
-    // TAHAP 2: Susun tabel dari Server + Lokal
     try {
-      // A. Muat dari histori Server
       for (let h of histori.reverse()) {
         let pinStr = h.dataScan.toString();
         if (processedPins.has(pinStr)) continue; 
@@ -672,7 +665,6 @@
         htmlBuffer += trHtml;
       }
 
-      // B. Muat dari Antrean Lokal (Offline) agar selalu aman jika ter-refresh
       let pendingScans = await db.antrean.where('status').equals('pending').toArray();
       for (let p of pendingScans.reverse()) {
         if (p.type === 'CHECKER_SCAN') {
@@ -691,10 +683,8 @@
               if(i === 3) val = `<b>${val}</b>`; 
               trHtml += `<td>${val}</td>`;
           }
-          // Tambahkan label (Offline/Menunggu) agar Anda tahu ini data belum terkirim
           trHtml += `<td><span class='badge ${badgeClass}'>${p.payload.status} (Menunggu)</span></td></tr>`;
           
-          // Letakkan data offline di barisan teratas
           htmlBuffer = trHtml + htmlBuffer; 
         }
       }
@@ -715,41 +705,76 @@
     
     document.body.classList.add('print-mode-checker');
     
-    // Beri jeda 300ms agar browser HP sempat mengubah tampilan UI sebelum render Print PDF
     setTimeout(() => {
       window.print();
       setTimeout(() => {
         document.body.classList.remove('print-mode-checker');
-      }, 500); // Hapus mode print setelah dialog ditutup
+      }, 500); 
     }, 300);
   }
 
+  // ==========================================
+  // LOGIKA MULTI-PAKET KASIR (BARU)
+  // ==========================================
   async function cariPaketKasir() {
     let inputRaw = document.getElementById("noPaketKasir").value.trim();
     let input = inputRaw.replace(/[^0-9]/g, '');
     let cabangAktif = document.getElementById("lokasiKasirReadonly").value.toLowerCase();
     if(!input) return;
     
-    let paket = await db.paket.get(input);
-    if (!paket) {
+    let allPaket = await db.paket.toArray();
+    let targetPhone = "";
+    let namaKustomer = "";
+
+    // 1. Cari target phone berdasarkan input (bisa PIN atau No HP)
+    let paketAwal = await db.paket.get(input);
+    if (paketAwal) {
+      targetPhone = normalisasiTelepon(paketAwal.phone) || (paketAwal.phone ? paketAwal.phone.toString() : "");
+      namaKustomer = paketAwal.nama;
+    } else {
       let normInput = normalisasiTelepon(input);
-      let allPaket = await db.paket.toArray();
-      paket = allPaket.find(p => {
-        let normDbPhone = normalisasiTelepon(p.phone);
-        let rawDbPhone = p.phone ? p.phone.toString().replace(/[^0-9]/g, '') : "";
-        return normDbPhone === normInput || rawDbPhone === input;
-      });
+      let pFind = allPaket.find(p => normalisasiTelepon(p.phone) === normInput || (p.phone && p.phone.toString().replace(/[^0-9]/g, '') === input));
+      if (pFind) {
+        targetPhone = normalisasiTelepon(pFind.phone) || (pFind.phone ? pFind.phone.toString() : "");
+        namaKustomer = pFind.nama;
+      }
     }
 
     let divHasil = document.getElementById("hasilPencarianKasir");
     let tbody = document.getElementById("tbodyKasir");
     let errCabang = document.getElementById("errorCabangKasir");
-    
+
+    if (!targetPhone && !paketAwal) {
+      playTetot();
+      alert("Paket/Kustomer tidak ditemukan di Database Lokal.");
+      divHasil.classList.add("hidden");
+      return;
+    }
+
+    // 2. Kumpulkan semua paket dengan No HP yang sama
+    let kumpulanPaket = [];
+    if (targetPhone) {
+        let targetNorm = normalisasiTelepon(targetPhone);
+        kumpulanPaket = allPaket.filter(p => {
+           if(!p.phone) return false;
+           let dbNorm = normalisasiTelepon(p.phone);
+           let rawDb = p.phone.toString().replace(/[^0-9]/g, '');
+           return dbNorm === targetNorm || rawDb === targetPhone;
+        });
+    } else if (paketAwal) {
+        // Jika tidak ada no hp terdata, tampilkan paket yg terscan saja
+        kumpulanPaket = [paketAwal];
+    }
+
+    divHasil.classList.remove("hidden");
+    document.getElementById("infoKustomerKasir").innerText = `Kustomer: ${namaKustomer || "-"} (${targetPhone || "Tanpa No HP"})`;
+
     tbody.innerHTML = "";
-    if(paket) {
-      divHasil.classList.remove("hidden");
-      document.getElementById("infoKustomerKasir").innerText = `Kustomer: ${paket.nama} (${paket.phone})`;
-      
+    let adaSalahCabang = false;
+    let adaBelumDiambil = false;
+
+    // 3. Render baris untuk setiap paket kustomer tersebut
+    kumpulanPaket.forEach(paket => {
       let isTaken = paket.statusAmbil === "Sudah Diambil";
       let tujuanLower = (paket.jenis||"").toLowerCase();
       let isBenar = false;
@@ -759,37 +784,37 @@
       else if (tujuanLower.includes(cabangAktif)) isBenar = true;
       
       let isWrongLocation = !isBenar;
+      if (isWrongLocation && !isTaken) adaSalahCabang = true;
+      if (!isTaken && !isWrongLocation) adaBelumDiambil = true;
 
-      if (isTaken || isWrongLocation) {
-        playTetot();
-      } else {
-        playBeep(); 
-      }
-
-      errCabang.classList.toggle("hidden", !isWrongLocation);
-      
       let checkboxHtml = isTaken ? "✔️" : (isWrongLocation ? "🚫" : `<input type="checkbox" class="cb-kasir" value="${paket.noPaket}" data-harga="${paket.bayar}" checked onchange="hitungTotalKasir()">`);
       let trClass = isTaken ? "taken" : (isWrongLocation ? "warning-text" : "");
       
-      tbody.innerHTML = `<tr class="${trClass}">
+      tbody.innerHTML += `<tr class="${trClass}">
         <td style="text-align:center;">${checkboxHtml}</td><td><b>${paket.noPaket}</b></td><td>${paket.jenis}</td><td>${paket.berat}</td><td>${paket.bayar}</td>
         <td><b>${isTaken ? 'SUDAH DIAMBIL' : (isWrongLocation ? 'SALAH CABANG' : 'BELUM DIAMBIL')}</b></td>
       </tr>`;
-      hitungTotalKasir();
+    });
 
-      let selectMetode = document.getElementById("metodeBayarKasir");
-      let btnKonfirm = document.getElementById("btnKonfirmasiBayarKasir");
-      if (isWrongLocation || isTaken) {
-          selectMetode.disabled = true; btnKonfirm.disabled = true; btnKonfirm.style.background = "#6c757d";
-          btnKonfirm.innerText = isTaken ? "Paket Sudah Diambil" : "Ditolak (Salah Cabang)";
-      } else {
-          selectMetode.disabled = false; btnKonfirm.disabled = false; btnKonfirm.style.background = "#28a745"; 
-          btnKonfirm.innerText = "Konfirmasi & Simpan";
-      }
+    hitungTotalKasir();
+
+    if (adaBelumDiambil && !adaSalahCabang) {
+      playBeep();
     } else {
-      playTetot();
-      alert("Paket tidak ditemukan di Database Lokal.");
-      divHasil.classList.add("hidden");
+      playTetot(); 
+    }
+
+    errCabang.classList.toggle("hidden", !adaSalahCabang);
+
+    let selectMetode = document.getElementById("metodeBayarKasir");
+    let btnKonfirm = document.getElementById("btnKonfirmasiBayarKasir");
+    
+    if (!adaBelumDiambil) {
+        selectMetode.disabled = true; btnKonfirm.disabled = true; btnKonfirm.style.background = "#6c757d";
+        btnKonfirm.innerText = "Tidak Ada Paket Valid";
+    } else {
+        selectMetode.disabled = false; btnKonfirm.disabled = false; btnKonfirm.style.background = "#28a745"; 
+        btnKonfirm.innerText = "Konfirmasi & Simpan";
     }
   }
 
@@ -801,17 +826,21 @@
 
   async function konfirmasiBayarKasir() {
     let checked = document.querySelectorAll('.cb-kasir:checked');
-    if(checked.length === 0) return alert("Pilih paket!");
-    let noPaket = checked[0].value;
+    if(checked.length === 0) return alert("Pilih minimal satu paket yang akan dibayar!");
+    
     let metode = document.getElementById("metodeBayarKasir").value;
     let cabangAktif = document.getElementById("lokasiKasirReadonly").value;
     
-    await db.paket.update(noPaket, { statusAmbil: "Sudah Diambil", jenisBayar: metode });
-    await db.antrean.add({ type: 'KASIR_BAYAR', status: 'pending', payload: { noPaket: noPaket, metode: metode, cabang: cabangAktif } });
+    // Loop untuk mencatat pembayaran SEMUA paket yang dicentang
+    for (let i = 0; i < checked.length; i++) {
+        let noPaket = checked[i].value;
+        await db.paket.update(noPaket, { statusAmbil: "Sudah Diambil", jenisBayar: metode });
+        await db.antrean.add({ type: 'KASIR_BAYAR', status: 'pending', payload: { noPaket: noPaket, metode: metode, cabang: cabangAktif } });
+    }
     
     document.getElementById("hasilPencarianKasir").classList.add("hidden");
     document.getElementById("noPaketKasir").value = "";
-    alert("✅ Pembayaran Tersimpan di Memori Lokal!");
+    alert(`✅ ${checked.length} Pembayaran Tersimpan di Memori Lokal!`);
   }
 
   async function muatLaporanKasirLokal() {
